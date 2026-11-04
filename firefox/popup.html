@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CacheBuddy</title>
+  <link rel="stylesheet" href="ui.css">
+  <script type="module" src="popup.js"></script>
+</head>
+<body class="popup">
+  <header class="mast"><img src="mark.svg" alt="" width="28" height="28"><strong>CacheBuddy</strong><span>Offline archive</span></header>
+  <div class="frame">
+    <nav class="rail" aria-label="CacheBuddy">
+      <button type="button" data-view="capture" aria-controls="capture" aria-current="page">Cache</button>
+      <button type="button" data-view="archive" aria-controls="archive">Saved</button>
+      <button type="button" data-view="about" aria-controls="about">About</button>
+    </nav>
+    <main class="sheet">
+      <section id="capture">
+        <h1>Keep a copy</h1>
+        <p class="muted">Save a page before you go offline.</p>
+        <div class="address">
+          <span class="small muted">Current address</span>
+          <strong id="host">Loading…</strong>
+          <span id="address" class="small muted clip"></span>
+        </div>
+        <dl class="cache-state" id="cacheState" hidden>
+          <div><dt>This page</dt><dd id="pageState">Checking…</dd></div>
+          <div><dt>This website</dt><dd id="siteState">Checking…</dd></div>
+        </dl>
+        <fieldset id="choices" disabled>
+          <legend class="small muted">Save scope</legend>
+          <label class="option"><input type="radio" name="mode" value="page" checked><span><b>This page</b><small>Snapshot of the open tab</small></span></label>
+          <label class="option"><input type="radio" name="mode" value="site"><span><b>This website</b><small>Up to 40 linked public pages on this origin</small></span></label>
+        </fieldset>
+        <p id="scopeNote" class="small muted">Copies stay in this browser profile. A page snapshot may contain personal information visible in your tab.</p>
+        <div class="actions">
+          <button id="save" class="primary" disabled>Cache page</button>
+          <button id="check" class="quiet" hidden>Check for changes</button>
+          <button id="uncache" class="quiet danger" hidden>Uncache</button>
+          <button id="cancelUncache" class="quiet" hidden>Cancel</button>
+        </div>
+        <div id="meter" class="meter" hidden>
+          <label for="progress"><span id="meterLabel">Working…</span><span id="count"></span></label>
+          <progress id="progress" max="1" value="0"></progress>
+        </div>
+        <p id="status" class="small status" role="status" aria-live="polite"></p>
+      </section>
+      <section id="archive" hidden>
+        <h1>Saved copies</h1>
+        <p id="total" class="muted"></p>
+        <label class="small muted search">Find a copy<input id="search" type="search" placeholder="Search title or address"></label>
+        <ul id="list" class="archives"></ul>
+      </section>
+      <section id="about" hidden>
+        <h1>About CacheBuddy</h1>
+        <p class="muted">Version 1.1.0 · Made by Yap</p>
+        <label class="setting"><span><b>Color theme</b><small>Applies to CacheBuddy controls</small></span>
+          <select id="theme"><option value="system">System</option><option value="paper">Paper</option><option value="ink">Ink</option><option value="moss">Moss</option><option value="clay">Clay</option></select>
+        </label>
+        <p>CacheBuddy saves only after you click Cache or Update. Revisit a saved address offline or open it from Saved.</p>
+        <div class="links">
+          <a href="legal.html" target="_blank" rel="noopener">Privacy, terms &amp; permissions</a>
+          <a href="mailto:yapperyapemail@proton.me">Contact</a>
+          <a href="https://ko-fi.com/yapperyap" target="_blank" rel="noopener noreferrer">Donate ↗</a>
+          <a href="https://github.com/yapperyap" target="_blank" rel="noopener noreferrer">Yap on GitHub ↗</a>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

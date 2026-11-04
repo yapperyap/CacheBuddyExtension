@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Offline copy · CacheBuddy</title>
+  <link rel="stylesheet" href="ui.css">
+  <script type="module" src="viewer.js"></script>
+</head>
+<body class="viewer">
+  <header class="mast">
+    <img src="mark.svg" width="28" height="28" alt="">
+    <strong>CacheBuddy</strong>
+    <span id="label">Offline copy</span>
+    <a id="original" hidden rel="noreferrer">Original address</a>
+    <button id="online" hidden>Try live page</button>
+  </header>
+  <iframe id="copy" title="Saved page snapshot" sandbox="allow-same-origin allow-top-navigation-by-user-activation" referrerpolicy="no-referrer" hidden></iframe>
+  <main id="notice" class="sheet notice" role="status">Opening the offline copy…</main>
+</body>
+</html>
