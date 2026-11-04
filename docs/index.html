@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#131e20">
+<meta name="description" content="Save local copies of web pages for offline reading with CacheBuddy.">
+<link rel="canonical" href="https://yapperyap.github.io/CacheBuddyExtension/">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="preload" href="plex.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+<title>CacheBuddy · Offline Web Snapshots</title>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="wrap mast">
+<a class="brand" href="./"><img src="icon.png" width="36" height="36" alt=""><span translate="no">CacheBuddy</span></a>
+<nav aria-label="Main"><a href="./#install">Install</a><a href="privacy.html">Privacy Policy</a><a href="https://github.com/yapperyap/CacheBuddyExtension">GitHub</a></nav>
+</header>
+
+<main id="main" class="wrap">
+<section class="hero">
+<div><p class="label">Offline web archive</p><h1>Keep the web<br>within reach.</h1>
+<p class="lead">Save a web page or a set of linked pages and reopen your copies when you’re offline. CacheBuddy stores them in your browser profile.</p>
+<div class="actions"><a class="button" href="https://github.com/yapperyap/CacheBuddyExtension/releases">Download from GitHub Releases</a><a href="https://github.com/yapperyap/CacheBuddyExtension">View source</a></div></div>
+<div class="tray" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M9 22h10l2.5 4h5l2.5-4h10v12a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3Zm0 0 5-12h20l5 12m-19-5h8"/></svg></div>
+</section>
+<figure class="demo">
+<a href="demo.png"><img src="demo.png" width="1280" height="800" fetchpriority="high" alt="CacheBuddy popup on dinnerplate.party showing cache status, save scope, and progress while saving a website."></a>
+<figcaption><span>CacheBuddy saving pages on Dinnerplate. The extension UI may change.</span><a href="demo.png">View full-size screenshot</a></figcaption>
+</figure>
+<section id="install" class="block">
+<div class="section-head"><p class="label">01 / Install</p><h2>Get CacheBuddy</h2><p>Pick the ZIP for your browser from <a href="https://github.com/yapperyap/CacheBuddyExtension/releases">GitHub Releases</a>. Marketplace links will be added when available.</p></div>
+<div class="pair"><article><h3>Chrome and Chromium</h3><p>Extract the Chromium ZIP. Open <code>chrome://extensions</code> in Chrome, or the extensions page in your Chromium browser. Turn on <strong>Developer mode</strong>, choose <strong>Load unpacked</strong>, and select the extracted folder containing <code>manifest.json</code>.</p></article>
+<article><h3>Firefox</h3><p>Open <code>about:debugging</code>, select <strong>This Firefox</strong>, then <strong>Load Temporary Add-on</strong>. Choose the Firefox ZIP. Firefox removes this unsigned build on restart. Permanent installation requires a Mozilla-signed build.</p></article></div>
+</section>
+<section id="use" class="block">
+<div class="section-head"><p class="label">02 / Use</p><h2>Save, Then Read Offline</h2></div>
+<ol class="steps"><li><h3>Pick a Scope</h3><p>Open an HTTP or HTTPS page and click the CacheBuddy icon. Choose <strong>This page</strong> for the current tab or <strong>This website</strong> for linked public pages on the same origin.</p></li>
+<li><h3>Start the Save</h3><p>Click <strong>Cache page</strong> or <strong>Cache website</strong> and allow site access if prompted. Reopen the popup any time to check progress.</p></li>
+<li><h3>Open a Copy</h3><p>Visit the original address offline or choose a copy under <strong>Saved</strong>. To refresh a copy, use <strong>Check for changes</strong> or <strong>Update</strong>. Use <strong>Uncache</strong> or delete it from Saved to free local storage.</p></li></ol>
+</section>
+<section id="how" class="block">
+<div class="section-head"><p class="label">03 / How it works</p><h2>What Gets Saved</h2></div>
+<div class="pair"><article><h3>Static Copies, Stored Locally</h3><p>Page mode can capture the current tab’s rendered HTML. Website mode follows up to 40 linked public pages on the same origin. CacheBuddy sanitizes the markup and can embed eligible assets for offline viewing.</p></article>
+<article><h3>Replay After a Network Failure</h3><p>When a supported top-level navigation fails and a matching copy exists, CacheBuddy opens its offline viewer and shows the original address. Copies may omit videos, dynamic content, and interactive features.</p></article></div>
+<p class="note">Save only content you have permission or another lawful basis to archive. For details on local data and browser permissions, read the <a href="privacy.html">Privacy Policy</a>.</p>
+</section>
+</main>
+<footer class="wrap foot">
+<div><strong translate="no">CacheBuddy</strong><p>Made by Yap · MIT-licensed source</p></div>
+<nav aria-label="Footer"><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms</a><a href="mailto:yapperyapemail@proton.me">Contact</a><a href="https://ko-fi.com/yapperyap">Donate on Ko-fi</a></nav>
+</footer>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#131e20">
+<meta name="description" content="How CacheBuddy uses page content, browser permissions and local storage.">
+<link rel="canonical" href="https://yapperyap.github.io/CacheBuddyExtension/privacy.html">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="preload" href="plex.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+<title>Privacy Policy · CacheBuddy</title>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="wrap mast">
+<a class="brand" href="./"><img src="icon.png" width="36" height="36" alt=""><span translate="no">CacheBuddy</span></a>
+<nav aria-label="Main"><a href="./#install">Install</a><a href="privacy.html" aria-current="page">Privacy Policy</a><a href="https://github.com/yapperyap/CacheBuddyExtension">GitHub</a></nav>
+</header>
+
+<main id="main" class="wrap legal">
+<p class="label">CacheBuddy / Policy</p><h1>Privacy Policy</h1>
+<p class="lead">CacheBuddy uses your browser data to save and reopen the offline copies you request. Saved content stays in your browser profile.</p>
+<p class="date">Effective <time datetime="2026-11-04">November 4, 2026</time> · Applies to CacheBuddy 1.1.0</p>
+<nav class="policy-nav" aria-label="On this page"><a href="#data">Data and purpose</a><a href="#sharing">Requests and sharing</a><a href="#controls">Retention and controls</a><a href="#permissions">Permissions</a><a href="#website">Website</a></nav>
+<section id="data"><h2>Data and Purpose</h2>
+<p>Yap maintains CacheBuddy. When you open the extension popup, CacheBuddy reads the active tab’s address to show cache status. When you choose Cache, Check for changes, or Update, it processes the selected page or public pages on the selected site for offline use or to compare versions. A snapshot can include text, images, and information from the current page’s markup, including private or signed-in content if you capture it from a rendered tab.</p>
+<p>CacheBuddy stores snapshots, embedded assets, original URLs, page titles, timestamps, sizes, and comparison hashes in your browser profile. It also stores your theme preference locally and temporarily holds pending capture details during the permission prompt. CacheBuddy observes failed top-level navigations to match them to saved addresses. It does not maintain a browsing-history log. Your browser may retain normal history entries for visited pages and the offline viewer.</p></section>
+<section id="sharing"><h2>Network Requests and Sharing</h2>
+<p>When you save or check a copy, CacheBuddy can request pages, assets, and <code>robots.txt</code> from the selected origin. Its own fetches omit cookies and authentication credentials. The site you selected receives ordinary request details, including the requested URL and your IP address. Opening a live link in your browser is a separate visit governed by that site’s practices.</p>
+<p>CacheBuddy has no developer-operated server, accounts, telemetry, advertising, or browser-sync feature. The extension does not send saved copies, browsing activity, or preferences to Yap. It does not sell user data or share it for advertising, with data brokers, or for credit decisions. It uses browsing activity solely to provide the offline capture and replay features described here.</p></section>
+<section id="controls"><h2>Retention, Security, and Your Choices</h2>
+<p>Saved copies remain in local browser storage until you delete them using <strong>Uncache</strong> or the <strong>Saved</strong> tab, clear the extension’s data, or uninstall it. Checking for changes leaves the existing archive in place. You can decline optional site access, or revoke it in your browser’s extension settings. Delete an existing copy separately if you no longer want it stored.</p>
+<p>Anyone with access to your browser profile may be able to view your copies. Use your browser and device security controls to protect that profile. Avoid archiving sensitive pages if others can access your device.</p></section>
+<section id="permissions"><h2>Browser Permissions</h2>
+<dl class="permissions">
+<div><dt><code>activeTab</code> and <code>scripting</code></dt><dd>Read the selected tab’s address and capture rendered HTML after a page action.</dd></div>
+<div><dt>Optional HTTP and HTTPS site access</dt><dd>Request access for the selected host to fetch eligible pages and assets for a save or update check.</dd></div>
+<div><dt><code>webNavigation</code></dt><dd>Detect failed navigations and open a matching local copy.</dd></div>
+<div><dt><code>offscreen</code> in Chromium</dt><dd>Parse and sanitize snapshots and let a requested save continue after the popup closes.</dd></div>
+<div><dt><code>storage</code> and <code>unlimitedStorage</code></dt><dd>Keep preferences and pending job information locally and support larger archives containing page content and assets.</dd></div>
+</dl></section>
+<section id="website"><h2>This Website and External Links</h2>
+<p>This site is hosted by GitHub Pages. GitHub logs and stores visitor IP addresses for security under its <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">Privacy Statement</a>. CacheBuddy adds no website analytics, tracking cookies, or advertising scripts. GitHub, Ko-fi, browser marketplaces, and other linked services handle visits under their own policies.</p>
+<p>If you email Yap for support, your email address and message are used to respond and handle your request. Please avoid sending cached private pages or credentials.</p></section>
+<section><h2>Contact and Policy Updates</h2>
+<p>For privacy questions, requests about information you sent directly, or accessibility concerns, <a href="mailto:yapperyapemail@proton.me">email Yap at yapperyapemail@proton.me</a>. Yap cannot access or delete copies stored only in your browser. Updates to this policy will appear here with a revised effective date.</p></section>
+</main>
+<footer class="wrap foot">
+<div><strong translate="no">CacheBuddy</strong><p>Made by Yap · MIT-licensed source</p></div>
+<nav aria-label="Footer"><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms</a><a href="mailto:yapperyapemail@proton.me">Contact</a><a href="https://ko-fi.com/yapperyap">Donate on Ko-fi</a></nav>
+</footer>
+</body>
+</html>
