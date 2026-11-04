@@ -1,0 +1,52 @@
+CacheBuddy 1.1.0
+Made by Yap
+
+INSTALL
+1. Extract CacheBuddy-1.1.0.zip to a folder you can keep.
+2. In Chrome 116 or later, open chrome://extensions and enable Developer mode.
+3. Choose Load unpacked and select the extracted folder containing manifest.json.
+4. Open CacheBuddy from Chrome's Extensions menu. Pin it if you want one-click access.
+
+SAVE AND REOPEN
+Open an HTTP or HTTPS page. Choose This page or This website and press Cache.
+Approve site access if prompted. The popup shows progress and any skipped items.
+Capture starts after approval, even if Chrome closes the popup. Reopen it to
+see progress. The Cache view shows page and website status and lets you uncache
+the selected saved copy.
+You can close the popup once capture starts. Use Saved to open or delete copies.
+
+To reopen a saved page offline, enter its original address. After Chrome reports
+a supported network failure, CacheBuddy opens the local copy in a viewer tab
+addressed with a chrome-extension:// URL. The header displays the original URL.
+You can also open a copy directly from Saved, including while you're online.
+
+CHECK AND UPDATE
+Select the same scope, then press Check for changes while online. A check compares
+the available snapshots and resources without modifying the archive. Use Update
+to replace the archive. The existing archive is kept if the root or a previously
+saved page or resource fails during refresh. There is no background caching or
+change monitoring.
+
+SCOPE
+This page captures the rendered DOM when Chrome allows it, or falls back to a
+public HTML fetch. Refresh the live page before checking a rendered snapshot.
+This website follows linked public HTML pages on the same origin, starting at
+the current page and origin homepage. It checks robots.txt and applicable
+noarchive directives on fetched pages, and uses no login credentials. The site
+limit is 40 pages. Captures are limited to 96 MB each.
+
+The viewer displays static content and may omit some assets. It supports
+same-origin styles, common images and font assets within size limits. Scripts,
+forms, embedded media, PDFs, protected fetches and cross-origin assets are
+outside the capture scope. For private rendered pages, save only if you are
+comfortable keeping the visible content in the current browser profile.
+
+PRIVACY AND TERMS
+Open About > Privacy, terms & permissions for the complete notice, including
+permission purposes, contact and font attribution. If distributing this in the
+Chrome Web Store, host the current privacy notice publicly, link it in the
+listing, and complete the store's Privacy practices disclosures before submission.
+
+Contact: yapperyapemail@proton.me
+Donate: https://ko-fi.com/yapperyap
+GitHub: https://github.com/yapperyap
