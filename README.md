@@ -2,6 +2,9 @@
 
 CacheBuddy saves static copies of web pages and linked public pages for offline reading. Capture is manual, and snapshots stay in your browser profile.
 
+Website link: https://yapperyap.github.io/CacheBuddyExtension/
+
+
 | Browser | Source folder | Install the matching release ZIP |
 | --- | --- | --- |
 | Chromium 116+ (Chrome, Edge, Brave) | [chromium/](chromium/) | Extract the Chromium ZIP, open your browser's extensions page, turn on Developer mode, and select **Load unpacked**. Choose the folder containing `manifest.json`. |
