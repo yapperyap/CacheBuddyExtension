@@ -27,7 +27,7 @@ p{margin:.8rem 0 0}
 .tray{color:#83ced8;background:#203438;border:1px solid var(--line);border-radius:.6rem 4rem .6rem .6rem;aspect-ratio:1.24;display:grid;place-items:center}
 .tray svg{width:66%}
 .demo{margin:0;padding:.55rem;background:var(--panel);border:1px solid var(--line);border-radius:.5rem 1.65rem .5rem .5rem}
-.demo>a{display:block;border-radius:.3rem 1.3rem .3rem .3rem;overflow:hidden}
+.demo-image{aspect-ratio:1280/657;border-radius:.3rem 1.3rem .3rem .3rem;overflow:hidden}
 .demo img{display:block;width:100%;height:auto}
 figcaption{display:flex;gap:0 1rem;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:.55rem .35rem .2rem;color:var(--soft);font-size:.9rem}
 figcaption a{display:inline-flex;align-items:center;min-height:44px}
