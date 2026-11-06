@@ -1,26 +1,25 @@
-# CacheBuddy project index
-Source: https://github.com/yapperyap/CacheBuddyExtension (main). Inspected 2026-11-06.
-Website: https://yapperyap.github.io/CacheBuddyExtension/
+# CacheBuddy GitHub Pages index
+Source: https://github.com/yapperyap/CacheBuddyExtension, main/docs. Inspected 2026-11-06.
+Live site: https://yapperyap.github.io/CacheBuddyExtension/
+Extension index: EXTENSION_INDEX.md. This file stays outside served docs/ and browser ZIPs.
 
-| Feature | Paths |
+| Feature | Path |
 | --- | --- |
-| Website, marketplace buttons, install guide | docs/index.html |
-| Responsive site styles and screenshot crop | docs/site.css |
-| Public policies and email contact | docs/privacy.html, docs/terms.html |
-| Browser permissions and version | chromium/manifest.json, firefox/manifest.json |
-| Popup, privacy link, email contact | Each browser folder: popup.html, popup.js, ui.css |
-| Local legal details and email | Each browser folder: legal.html |
-| Capture and background navigation | Each browser folder: capture.js, capture.html, worker.js |
-| Local archives and viewer | Each browser folder: db.js, viewer.html, viewer.js |
+| Landing page, installation, media limits, download buttons | docs/index.html |
+| Shared styling, screenshot crop, 680px mobile breakpoint | docs/site.css |
+| Privacy, external resource requests, optional permissions | docs/privacy.html |
+| Terms, support, licensing | docs/terms.html |
+| Screenshot, icon, local font and license | docs/demo.png, docs/icon.png, docs/plex.woff2, docs/OFL.txt |
 
-Version: 1.1.3. Chromium MV3; Firefox MV2. Maintain both implementations.
-Privacy link: https://yapperyap.github.io/CacheBuddyExtension/privacy.html
-Contact text: Email: yapperyapemail@proton.me
-Buildless website in docs/. Preview: python -m http.server 8000 --directory docs
-No automated suite/build config observed. Check links, wrapping, and screenshot crop.
-Release ZIPs contain the corresponding browser folder contents with manifest.json at archive root. Verify ZIP/source equality and matching versions before upload.
-Keep this index outside docs/ and browser ZIPs. Pages and releases require remote verification after publication.
+## Contracts
+- Buildless HTML/CSS, docs/.nojekyll; no package manager or build needed. Preview: python -m http.server 8000 --directory docs
+- Buttons: GitHub Releases; Chrome Extension → https://chromewebstore.google.com/detail/cachebuddy/jghepnookbdhkaaibheeldmhaoknpmch ; Firefox Extension → https://addons.mozilla.org/en-US/firefox/addon/cachebuddy/
+- Contact label exactly Email: yapperyapemail@proton.me; keep mailto action, privacy/terms and donation links.
+- Screenshot is not a link. .demo-image crops baked-in blank bottom with aspect-ratio 1280/657, overflow hidden; retain UI-change caption.
+- Preserve established colors, responsive wrapping, focus styles and privacy claims. No analytics or server needed.
 
-Media checkbox: popup.html/popup.js → worker.js staged intent → capture.js saveMedia. Off by default; local preference, archive setting retained for change checks. Referenced external media supported with optional HTTP(S) permission; 4 MB/resource, 96 MB/archive. Viewer banner dismiss: viewer.html/viewer.js, ui.css banner-dismissed grid.
-
-Media mode requests optional HTTP(S) access on user click; staged intents wait for all requested permissions before starting. Resource fetches allow CDN redirects with credentials omitted; same-origin crawl boundaries remain. Live snapshots use currentSrc for responsive images.
+## Verification and publishing
+- Live page verified: correct store/download URLs and literal email; screenshot loads, click stays on page, crop ratio matches, no desktop horizontal overflow.
+- Check live privacy/terms links, media instructions, and Pages job after changes. Mobile viewport rendering and installed extension are separate checks; do not infer from desktop source tests.
+- GitHub Pages uses docs/ on main. Browser-uploaded commits trigger pages-build-deployment. Deployment may queue; verify live content before claiming completion.
+- User prefers cloud browser for GitHub. Extension release upload and store submission are separate operations.
