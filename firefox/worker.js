@@ -100,6 +100,10 @@ async function start(message) {
                 image.removeAttribute('srcset');
               }
             });
+            const toggles = document.querySelectorAll('input[type=radio],input[type=checkbox]');
+            copy.querySelectorAll('input[type=radio],input[type=checkbox]').forEach((input, index) => {
+              input.toggleAttribute('checked', Boolean(toggles[index]?.checked));
+            });
             const html = copy.outerHTML;
             return {url: location.href, html: html.length <= limit ? html : null};
           },
