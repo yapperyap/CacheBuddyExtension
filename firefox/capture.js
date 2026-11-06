@@ -1,7 +1,7 @@
 import {getArchive, pageURL, webURL, writeArchive} from './db.js';
 
 const MAX_PAGES = 40;
-const MAX_ASSETS = 90;
+const MAX_ASSETS = 256;
 const PAGE_BYTES = 2_000_000;
 const ASSET_BYTES = 4_000_000;
 const ARCHIVE_BYTES = 96_000_000;
@@ -100,23 +100,50 @@ function dataURL(blob) {
 function assetsFor(origin, allowed, saveMedia) {
   const resources = new Map();
   const failed = new Set();
-  let bytes = 0, skipped = 0;
+  let bytes = 0;
+  const omissions = new Map();
+  function noteSkipped(reason, key) {
+    if (!omissions.has(key)) omissions.set(key, reason);
+  }
   return {
-    get skipped() { return skipped; },
+    get skipped() { return omissions.size; },
+    get reasons() {
+      const counts = {};
+      for (const reason of omissions.values()) counts[reason] = (counts[reason] || 0) + 1;
+      return counts;
+    },
+    noteSkipped,
     get fetched() { return [...resources].filter(([, value]) => value).map(([key]) => key); },
     failed,
     async get(value, base, css = false) {
       if (!css && !saveMedia) return '';
       const raw = value.trim();
-      if (!css && localData.test(raw) && raw.length <= ASSET_BYTES) return raw;
+      if (!raw || raw.startsWith('#')) return '';
+      const rawKey = (css ? 'css:' : 'data:') + raw;
+      if (!css && localData.test(raw)) {
+        if (raw.length <= ASSET_BYTES) return raw;
+        noteSkipped('file size limit', rawKey); return '';
+      }
+      // Wikipedia's CSS embeds percent-encoded SVG icons; these require no fetch.
+      if (!css && /^data:image\/svg\+xml(?:;charset=[^;,]+)?(?:;base64)?,/i.test(raw)) {
+        try {
+          const comma = raw.indexOf(',');
+          const payload = raw.slice(comma + 1);
+          const bytes = /;base64,/i.test(raw.slice(0, comma + 1))
+            ? Uint8Array.from(atob(payload), char => char.charCodeAt(0))
+            : new TextEncoder().encode(decodeURIComponent(payload));
+          if (bytes.length > ASSET_BYTES) { noteSkipped('file size limit', rawKey); return ''; }
+          return await dataURL(new Blob([bytes], {type: 'image/svg+xml'}));
+        } catch { noteSkipped('invalid inline image', rawKey); return ''; }
+      }
       const url = webURL(raw, base);
-      if (!url || (url.origin === origin && !allowed(url.href))) { skipped++; return ''; }
-      const permission = url.origin + '/*';
-      if (!await browser.permissions.contains({origins: [permission]})) { skipped++; return ''; }
+      if (!url || (url.origin === origin && !allowed(url.href))) { noteSkipped(url ? 'publisher restriction' : 'unsupported URL', rawKey); return ''; }
       url.hash = '';
       const key = (css ? 'css:' : 'data:') + url.href;
       if (resources.has(key)) return resources.get(key);
-      if (resources.size >= MAX_ASSETS || bytes >= ARCHIVE_BYTES) { skipped++; return ''; }
+      const permission = url.origin + '/*';
+      if (!await browser.permissions.contains({origins: [permission]})) { noteSkipped('site permission denied', key); return ''; }
+      if (resources.size >= MAX_ASSETS || bytes >= ARCHIVE_BYTES) { noteSkipped(resources.size >= MAX_ASSETS ? 'resource count limit' : 'archive size limit', key); return ''; }
       job.phase = 'Saving resources from ' + url.pathname.slice(0, 100);
       let valueOut = '';
       try {
@@ -124,9 +151,10 @@ function assetsFor(origin, allowed, saveMedia) {
         if (bytes + blob.size > ARCHIVE_BYTES) throw new Error('Resource budget reached.');
         bytes += blob.size;
         valueOut = css ? await blob.text() : await dataURL(blob);
-      } catch {
+      } catch (error) {
         failed.add(key);
-        skipped++;
+        const reason = /HTTP \d+/.exec(error.message)?.[0] || (/size limit|budget/i.test(error.message) ? 'file or archive size limit' : /content type/i.test(error.message) ? 'unsupported content type' : 'network or server failure');
+        noteSkipped(reason, key);
       }
       resources.set(key, valueOut);
       return valueOut;
@@ -157,7 +185,7 @@ async function rewriteCSS(css, base, assets, imports = new Set()) {
   for (const match of css.matchAll(tokens)) {
     pieces.push(css.slice(last, match.index));
     const ref = match[1] ?? match[2] ?? match[3];
-    const data = await assets.get(ref, base);
+    const data = ref.startsWith('#') ? ref : await assets.get(ref, base);
     pieces.push(data ? 'url("' + data + '")' : 'url("")');
     last = match.index + match[0].length;
     if (pieces.length >= 1_200) break;
@@ -169,10 +197,11 @@ async function snapshot(html, url, resources, saveMedia) {
   let embedded = 0;
   const assets = {
     async get(ref, base, css) {
-      if (embedded >= 12_000_000) return '';
+      if (embedded >= 12_000_000) { resources.noteSkipped('page size limit', ref); return ''; }
       const value = await resources.get(ref, base, css);
       embedded += value.length;
-      return embedded <= 12_000_000 ? value : '';
+      if (embedded > 12_000_000) { resources.noteSkipped('page size limit', ref); return ''; }
+      return value;
     }
   };
   const template = document.createElement('template');
@@ -200,6 +229,13 @@ async function snapshot(html, url, resources, saveMedia) {
   const title = content.querySelector('title')?.textContent.trim().slice(0, 200) || new URL(url).hostname;
   const baseRef = content.querySelector('base[href]')?.getAttribute('href');
   const base = webURL(baseRef || url, url)?.href || url;
+  // Reserve the download/page budget for actual article images before CSS icons.
+  const imageData = new Map();
+  for (const image of content.querySelectorAll('img')) {
+    const ref = image.getAttribute('src') || image.getAttribute('data-src') ||
+      image.getAttribute('srcset')?.trim().split(/\s|,/)[0];
+    if (ref) imageData.set(image, await assets.get(ref, base));
+  }
   const styles = [];
   for (const element of [...content.querySelectorAll('style,link[rel~="stylesheet"]')].slice(0, 40)) {
     const href = element.getAttribute('href');
@@ -260,7 +296,7 @@ async function snapshot(html, url, resources, saveMedia) {
       }
     }
     if (image) {
-      const data = await assets.get(image, base);
+      const data = imageData.get(element) || '';
       if (data) element.setAttribute('src', data);
     }
   }
@@ -340,6 +376,7 @@ async function run({mode, action, root, live, saveMedia = false}) {
   ));
   job.capped = capped;
   job.skippedAssets = assets.skipped;
+  job.resourceReasons = assets.reasons;
   if (action === 'check') {
     job.outcome = changed ? 'changed' : uncertain ? 'incomplete' : 'same';
     job.phase = changed ? 'Changes found. Your saved copy is ready to update.' :
@@ -351,8 +388,8 @@ async function run({mode, action, root, live, saveMedia = false}) {
   const savedAt = Date.now();
   await writeArchive(id, {
     id, root, mode, origin, saveMedia, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
-    skipped: failures.length, skippedAssets: assets.skipped, assets: assets.fetched, capped
+    skipped: failures.length, skippedAssets: assets.skipped, resourceReasons: assets.reasons, assets: assets.fetched, capped
   }, pages);
   job.outcome = 'saved';
-  job.phase = pages.length + (pages.length === 1 ? ' page saved' : ' pages saved') + ' for offline use.' + (assets.skipped ? ' Some media or resources could not be saved (permission, size, or server limits).' : '');
+  job.phase = pages.length + (pages.length === 1 ? ' page saved' : ' pages saved') + ' for offline use.' + (assets.skipped ? ' Skipped resources: ' + Object.entries(assets.reasons).map(([reason, count]) => count + ' ' + reason).join(' · ') + '.' : '');
 }

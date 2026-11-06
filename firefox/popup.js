@@ -60,7 +60,7 @@ function renderCapture() {
   if (editing) return;
   if (job?.running) return status(job.mode === 'site' ? 'You can close this popup while the site is processed.' : '');
   if (relevant && job.outcome && (archive || job.outcome === 'error')) {
-    const skipped = [job.skipped && job.skipped + ' pages skipped', job.skippedAssets && job.skippedAssets + ' resource references skipped', job.capped && 'site limit reached'].filter(Boolean);
+    const skipped = [job.skipped && job.skipped + ' pages skipped', job.skippedAssets && job.skippedAssets + ' unique resources skipped', job.capped && 'site limit reached'].filter(Boolean);
     return status(job.phase + (skipped.length ? ' ' + skipped.join(' · ') + '.' : ''), job.outcome === 'error');
   }
   status(archive ? 'Saved ' + new Date(archive.savedAt).toLocaleString() + '.' : '');
