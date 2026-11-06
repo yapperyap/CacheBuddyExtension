@@ -23,9 +23,9 @@ export function beginCapture(message) {
   return {ok: true};
 }
 
-async function request(url, limit, expected) {
+async function request(url, limit, expected, followRedirects = false) {
   const response = await fetch(url, {
-    credentials: 'omit', redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer',
+    credentials: 'omit', redirect: followRedirects ? 'follow' : 'error', cache: 'no-store', referrerPolicy: 'no-referrer',
     signal: AbortSignal.timeout(12_000)
   });
   if (!response.ok) throw new Error('The server returned HTTP ' + response.status + '.');
@@ -110,7 +110,9 @@ function assetsFor(origin, allowed, saveMedia) {
       const raw = value.trim();
       if (!css && localData.test(raw) && raw.length <= ASSET_BYTES) return raw;
       const url = webURL(raw, base);
-      if (!url || url.origin !== origin || !allowed(url.href)) { skipped++; return ''; }
+      if (!url || (url.origin === origin && !allowed(url.href))) { skipped++; return ''; }
+      const permission = url.origin + '/*';
+      if (!await browser.permissions.contains({origins: [permission]})) { skipped++; return ''; }
       url.hash = '';
       const key = (css ? 'css:' : 'data:') + url.href;
       if (resources.has(key)) return resources.get(key);
@@ -118,7 +120,7 @@ function assetsFor(origin, allowed, saveMedia) {
       job.phase = 'Saving resources from ' + url.pathname.slice(0, 100);
       let valueOut = '';
       try {
-        const {blob} = await request(url.href, css ? PAGE_BYTES : ASSET_BYTES, css ? /^text\/css$/ : assetType);
+        const {blob} = await request(url.href, css ? PAGE_BYTES : ASSET_BYTES, css ? /^text\/css$/ : assetType, true);
         if (bytes + blob.size > ARCHIVE_BYTES) throw new Error('Resource budget reached.');
         bytes += blob.size;
         valueOut = css ? await blob.text() : await dataURL(blob);
@@ -352,5 +354,5 @@ async function run({mode, action, root, live, saveMedia = false}) {
     skipped: failures.length, skippedAssets: assets.skipped, assets: assets.fetched, capped
   }, pages);
   job.outcome = 'saved';
-  job.phase = pages.length + (pages.length === 1 ? ' page saved' : ' pages saved') + ' for offline use.';
+  job.phase = pages.length + (pages.length === 1 ? ' page saved' : ' pages saved') + ' for offline use.' + (assets.skipped ? ' Some media or resources could not be saved (permission, size, or server limits).' : '');
 }

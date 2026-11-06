@@ -56,8 +56,8 @@ async function resumeCapture() {
     await browser.storage.session.remove(pendingKey);
     return;
   }
-  const origin = hostPermission(intent.root);
-  if (!await browser.permissions.contains({origins: [origin]})) return;
+  const origins = intent.saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(intent.root)];
+  if (!await browser.permissions.contains({origins})) return;
   await browser.storage.session.remove(pendingKey);
   try {
     await start(intent);
@@ -81,7 +81,7 @@ async function start(message) {
     if (!root || !['page', 'site'].includes(mode) || !['save', 'check'].includes(action)) {
       throw new Error('Choose an HTTP or HTTPS page.');
     }
-    if (!await browser.permissions.contains({origins: [hostPermission(root)]})) {
+    if (!await browser.permissions.contains({origins: message.saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(root)]})) {
       throw new Error('Allow access to this site to continue.');
     }
     const job = captureStatus();
@@ -92,7 +92,15 @@ async function start(message) {
         const [injection] = await browser.scripting.executeScript({
           target: {tabId},
           func: limit => {
-            const html = document.documentElement.outerHTML;
+            const copy = document.documentElement.cloneNode(true);
+            const images = document.images;
+            copy.querySelectorAll('img').forEach((image, index) => {
+              if (images[index]?.currentSrc) {
+                image.setAttribute('src', images[index].currentSrc);
+                image.removeAttribute('srcset');
+              }
+            });
+            const html = copy.outerHTML;
             return {url: location.href, html: html.length <= limit ? html : null};
           },
           args: [2_000_000]
