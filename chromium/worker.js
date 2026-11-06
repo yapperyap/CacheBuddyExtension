@@ -130,7 +130,18 @@ async function start(message) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (sender.url !== popupURL || message.to !== 'worker') return;
+  if (message.to !== 'worker') return;
+  if (message.type === 'asset-permission') {
+    if (sender.id !== chrome.runtime.id || sender.tab || sender.url !== offscreenURL) return;
+    const url = pageURL(message.url);
+    if (!url) { reply({ok: true, granted: false}); return; }
+    chrome.permissions.contains({origins: [hostPermission(url)]}).then(
+      granted => reply({ok: true, granted}),
+      error => reply({ok: false, error: error.message})
+    );
+    return true;
+  }
+  if (sender.url !== popupURL) return;
   let operation;
   if (message.type === 'status') operation = currentJob().then(value => ({ok: true, job: value?.running ? value : launchError || value}));
   if (message.type === 'stage') operation = serializePermission(async () => {

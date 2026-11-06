@@ -110,8 +110,9 @@ function assetsFor(origin, allowed, saveMedia) {
       if (!css && localData.test(raw) && raw.length <= ASSET_BYTES) return raw;
       const url = webURL(raw, base);
       if (!url || (url.origin === origin && !allowed(url.href))) { skipped++; return ''; }
-      const permission = url.origin + '/*';
-      if (!await chrome.permissions.contains({origins: [permission]})) { skipped++; return ''; }
+      const access = await chrome.runtime.sendMessage({to: 'worker', type: 'asset-permission', url: url.href});
+      if (!access?.ok) throw new Error(access?.error || 'Could not check media access.');
+      if (!access.granted) { skipped++; return ''; }
       url.hash = '';
       const key = (css ? 'css:' : 'data:') + url.href;
       if (resources.has(key)) return resources.get(key);

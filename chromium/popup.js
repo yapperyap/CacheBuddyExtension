@@ -266,7 +266,7 @@ try {
   document.body.style.setProperty('--popup-width', Math.round(screen.availWidth / 3) + 'px');
   el('theme').value = await applyTheme();
   const preferences = await chrome.storage.local.get('saveMedia');
-  el('saveMedia').checked = preferences.saveMedia === true;
+  el('saveMedia').checked = preferences.saveMedia !== false;
   [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const address = tab?.url || '';
   const viewer = address.startsWith(chrome.runtime.getURL('viewer.html') + '?');
