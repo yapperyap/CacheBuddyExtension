@@ -161,6 +161,7 @@ async function start(action) {
   const mode = selectedMode();
   const archive = selectedArchive();
   confirming = null;
+  const saveMedia = action === 'check' ? (archive?.saveMedia ?? true) : el('saveMedia').checked;
   const source = mode === 'site' && archive ? archive.root : root;
   pending = true;
   editing = false;
@@ -168,8 +169,8 @@ async function start(action) {
   try {
     const id = crypto.randomUUID();
     // Stage the click before the permission prompt can dismiss this popup.
-    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia: el('saveMedia').checked});
-    const permission = chrome.permissions.request({origins: [hostPermission(source)]});
+    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia});
+    const permission = chrome.permissions.request({origins: saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(source)]});
     const [stage, grant] = await Promise.allSettled([staged, permission]);
     if (stage.status === 'rejected') throw stage.reason;
     if (!stage.value?.ok) throw new Error(stage.value?.error || 'Could not start the operation.');
