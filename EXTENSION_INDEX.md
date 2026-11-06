@@ -1,5 +1,5 @@
 # CacheBuddy extension index
-Source: https://github.com/yapperyap/CacheBuddyExtension, main. Version 1.1.6, verified 2026-11-06.
+Source: https://github.com/yapperyap/CacheBuddyExtension, main. Version 1.1.7, verified 2026-11-06.
 Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/.
 
 | Feature | Source in chromium/ and firefox/ |
@@ -33,3 +33,7 @@ Chrome offscreen capture must use runtime messaging only: asset-permission messa
 Regression command: node offscreen-permissions.test.cjs (standard Node libraries; no dependencies). Exercises runtime-only capture against the actual worker handler, denied/invalid senders, media off, and default preference behavior.
 
 Snapshot order: img resources reserve budget before CSS decorations; inline SVG data URLs are normalized to base64 with file/page limits and no network permission request. Resource omissions are deduplicated and reported by cause. Empty/local CSS references are not counted. Regression: node resource-budget.test.cjs; live Ariane V88 markup and styles replayed with controlled network bodies (not installed-extension integration).
+
+Snapshot control layout: retain label and disabled checkbox/radio/button structure, remove text/password/hidden fields and handlers. Worker syncs checked properties into inert clone. CSS URL parser handles escaped strings; inline SVG accepts ;utf8 as well as charset/base64 forms. Raw Wikipedia CSS regression is distinct from CSSOM-normalized replay.
+
+Root-only development tests: npm ci && npm test (linkedom dev dependency for snapshot structural tests; no runtime dependency/build for extension or site). package-lock.json pins the test toolchain. Exclude node_modules and all root test files from browser ZIPs.

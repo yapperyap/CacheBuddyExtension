@@ -1,0 +1,10 @@
+{
+  "name": "cachebuddy-regression-tests",
+  "private": true,
+  "scripts": {
+    "test": "node offscreen-permissions.test.cjs && node resource-budget.test.cjs && node snapshot-layout.test.cjs"
+  },
+  "devDependencies": {
+    "linkedom": "0.18.15"
+  }
+}
