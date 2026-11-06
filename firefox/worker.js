@@ -102,7 +102,7 @@ async function start(message) {
         // A public fetch still works when Firefox disallows injection.
       }
     }
-    const response = beginCapture({mode, action, root, live});
+    const response = beginCapture({mode, action, root, live, saveMedia: message.saveMedia === true});
     if (!response?.ok) throw new Error(response?.error || 'The archive operation did not start.');
     return response;
   } finally {
@@ -124,7 +124,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
       throw new Error('Choose an HTTP or HTTPS page.');
     }
     launchError = null;
-    await browser.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, createdAt: Date.now()}});
+    await browser.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, saveMedia: message.saveMedia === true, createdAt: Date.now()}});
     await resumeCapture();
     return {ok: true};
   });

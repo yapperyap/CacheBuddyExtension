@@ -80,13 +80,13 @@ async function robotsRules(origin) {
   };
 }
 
-const forbidden = 'script,noscript,template,iframe,frame,frameset,object,embed,portal,svg,math,video,audio,source,track,canvas,input,select,textarea,button,base,meta,link,style';
-const allowedTags = new Set(('a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup data dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark menu nav ol p picture pre q rp rt ruby s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var wbr').split(' '));
+const forbidden = 'script,noscript,template,iframe,frame,frameset,object,embed,portal,svg,math,canvas,input,select,textarea,button,base,meta,link,style';
+const allowedTags = new Set(('audio video source track a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup data dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark menu nav ol p picture pre q rp rt ruby s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var wbr').split(' '));
 const allowedAttrs = new Set(('id class title dir lang role hidden open alt width height align valign colspan rowspan scope start reversed type value datetime span style').split(' '));
 const layoutData = /^data-(?:theme|mode|state|layout|color-scheme)$/;
 const deniedByMeta = (name, content) => /^(robots|cachebuddy)$/i.test(name) && /\bnoarchive\b/i.test(content);
-const localData = /^data:(?:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|vnd.microsoft.icon)|font\/(?:woff2?|ttf|otf));base64,[a-z0-9+/=\s]+$/i;
-const assetType = /^(?:image\/(?:png|jpeg|gif|webp|avif|bmp|svg\+xml|x-icon|vnd\.microsoft\.icon)|font\/(?:woff2?|ttf|otf)|application\/(?:font-woff|font-sfnt|vnd\.ms-fontobject))$/;
+const localData = /^data:(?:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|vnd.microsoft.icon)|font\/(?:woff2?|ttf|otf)|audio\/(?:mpeg|mp4|ogg|wav|webm|aac|flac|x-wav)|video\/(?:mp4|webm|ogg)|text\/vtt);base64,[a-z0-9+/=\s]+$/i;
+const assetType = /^(?:image\/(?:png|jpeg|gif|webp|avif|bmp|svg\+xml|x-icon|vnd\.microsoft\.icon)|audio\/(?:mpeg|mp4|ogg|wav|webm|aac|flac|x-wav)|video\/(?:mp4|webm|ogg)|text\/vtt|font\/(?:woff2?|ttf|otf)|application\/(?:font-woff|font-sfnt|vnd\.ms-fontobject))$/;
 
 function dataURL(blob) {
   return new Promise((resolve, reject) => {
@@ -97,7 +97,7 @@ function dataURL(blob) {
   });
 }
 
-function assetsFor(origin, allowed) {
+function assetsFor(origin, allowed, saveMedia) {
   const resources = new Map();
   const failed = new Set();
   let bytes = 0, skipped = 0;
@@ -106,6 +106,7 @@ function assetsFor(origin, allowed) {
     get fetched() { return [...resources].filter(([, value]) => value).map(([key]) => key); },
     failed,
     async get(value, base, css = false) {
+      if (!css && !saveMedia) return '';
       const raw = value.trim();
       if (!css && localData.test(raw) && raw.length <= ASSET_BYTES) return raw;
       const url = webURL(raw, base);
@@ -162,7 +163,7 @@ async function rewriteCSS(css, base, assets, imports = new Set()) {
   return importsText.join('\n') + '\n' + pieces.join('') + css.slice(last);
 }
 
-async function snapshot(html, url, resources) {
+async function snapshot(html, url, resources, saveMedia) {
   let embedded = 0;
   const assets = {
     async get(ref, base, css) {
@@ -217,6 +218,9 @@ async function snapshot(html, url, resources) {
     }
     const inlineCSS = element.getAttribute('style');
     const href = tag === 'a' ? element.getAttribute('href') : null;
+    const media = ['audio', 'video', 'source', 'track'].includes(tag);
+    const mediaSrc = media ? element.getAttribute('src') : null;
+    const poster = tag === 'video' ? element.getAttribute('poster') : null;
     const image = tag === 'img' ? element.getAttribute('src') || element.getAttribute('data-src') ||
       element.getAttribute('srcset')?.trim().split(/\s|,/)[0] : null;
     for (const attr of [...element.attributes]) {
@@ -238,6 +242,21 @@ async function snapshot(html, url, resources) {
         }
       }
     }
+    if (media) {
+      if (!saveMedia) { element.remove(); continue; }
+      if (tag === 'audio' || tag === 'video') {
+        element.setAttribute('controls', '');
+        element.setAttribute('preload', 'none');
+      }
+      if (mediaSrc) {
+        const data = await assets.get(mediaSrc, base);
+        if (data) element.setAttribute('src', data);
+      }
+      if (poster) {
+        const data = await assets.get(poster, base);
+        if (data) element.setAttribute('poster', data);
+      }
+    }
     if (image) {
       const data = await assets.get(image, base);
       if (data) element.setAttribute('src', data);
@@ -245,7 +264,7 @@ async function snapshot(html, url, resources) {
   }
   // Text in a style element needs escaping before embedding in srcdoc.
   const safeCSS = styles.join('\n').replace(/<\/style/gi, '<\\/style');
-  const csp = "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+  const csp = "default-src 'none'; img-src data:; media-src data:; font-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
   const output = '<!doctype html><html' + (wrapperAttrs.html || '') + '><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp +
     '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + safeCSS +
     '</style></head><body' + (wrapperAttrs.body || '') + '>' + template.innerHTML + '</body></html>';
@@ -257,13 +276,14 @@ async function hash(value) {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function run({mode, action, root, live}) {
+async function run({mode, action, root, live, saveMedia = false}) {
   const origin = new URL(root).origin;
   const id = mode === 'site' ? 'site:' + origin : 'page:' + root;
   const previous = await getArchive(id);
   if (action === 'check' && !previous) throw new Error('Save this archive before checking for changes.');
   const allowed = mode === 'site' ? await robotsRules(origin) : () => true;
-  const assets = assetsFor(origin, allowed);
+  if (action === 'check') saveMedia = previous.saveMedia ?? true;
+  const assets = assetsFor(origin, allowed, saveMedia);
   const queue = [root];
   const seen = new Set(queue);
   const pages = [];
@@ -290,7 +310,7 @@ async function run({mode, action, root, live}) {
         }
         html = await response.blob.text();
       }
-      const copy = await snapshot(html, url, assets);
+      const copy = await snapshot(html, url, assets, saveMedia);
       const size = new Blob([copy.html]).size;
       if (bytes + size > ARCHIVE_BYTES) {
         capped = true;
@@ -328,7 +348,7 @@ async function run({mode, action, root, live}) {
   job.phase = 'Writing the archive…';
   const savedAt = Date.now();
   await writeArchive(id, {
-    id, root, mode, origin, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
+    id, root, mode, origin, saveMedia, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
     skipped: failures.length, skippedAssets: assets.skipped, assets: assets.fetched, capped
   }, pages);
   job.outcome = 'saved';

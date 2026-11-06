@@ -10,6 +10,12 @@ const original = document.getElementById('original');
 const online = document.getElementById('online');
 const label = document.getElementById('label');
 
+document.getElementById('dismissBanner').addEventListener('click', () => {
+  document.getElementById('cacheBanner').hidden = true;
+  document.body.classList.add('banner-dismissed');
+  frame.focus();
+});
+
 await applyTheme();
 if (address) {
   original.hidden = online.hidden = false;

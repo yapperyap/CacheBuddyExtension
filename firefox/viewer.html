@@ -8,12 +8,13 @@
   <script type="module" src="viewer.js"></script>
 </head>
 <body class="viewer">
-  <header class="mast">
+  <header class="mast" id="cacheBanner">
     <img src="mark.svg" width="28" height="28" alt="">
     <strong>CacheBuddy</strong>
     <span id="label">Offline copy</span>
     <a id="original" hidden rel="noreferrer">Original address</a>
     <button id="online" hidden>Try live page</button>
+    <button id="dismissBanner" type="button" aria-label="Dismiss cached-page banner" title="Dismiss cached-page banner">×</button>
   </header>
   <iframe id="copy" title="Saved page snapshot" sandbox="allow-same-origin allow-top-navigation-by-user-activation" referrerpolicy="no-referrer" hidden></iframe>
   <main id="notice" class="sheet notice" role="status">Opening the offline copy…</main>
