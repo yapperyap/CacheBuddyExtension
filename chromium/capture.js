@@ -79,9 +79,9 @@ async function robotsRules(origin) {
   };
 }
 
-const forbidden = 'script,noscript,template,iframe,frame,frameset,object,embed,portal,svg,math,canvas,input,select,textarea,button,base,meta,link,style';
-const allowedTags = new Set(('audio video source track a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup data dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark menu nav ol p picture pre q rp rt ruby s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var wbr').split(' '));
-const allowedAttrs = new Set(('id class title dir lang role hidden open alt width height align valign colspan rowspan scope start reversed type value datetime span style').split(' '));
+const forbidden = 'script,noscript,template,iframe,frame,frameset,object,embed,portal,svg,math,canvas,select,textarea,base,meta,link,style';
+const allowedTags = new Set(('input label button audio video source track a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup data dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark menu nav ol p picture pre q rp rt ruby s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var wbr').split(' '));
+const allowedAttrs = new Set(('checked disabled for id class title dir lang role hidden open alt width height align valign colspan rowspan scope start reversed type value datetime span style').split(' '));
 const layoutData = /^data-(?:theme|mode|state|layout|color-scheme)$/;
 const deniedByMeta = (name, content) => /^(robots|cachebuddy)$/i.test(name) && /\bnoarchive\b/i.test(content);
 const localData = /^data:(?:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|vnd.microsoft.icon)|font\/(?:woff2?|ttf|otf)|audio\/(?:mpeg|mp4|ogg|wav|webm|aac|flac|x-wav)|video\/(?:mp4|webm|ogg)|text\/vtt);base64,[a-z0-9+/=\s]+$/i;
@@ -124,7 +124,7 @@ function assetsFor(origin, allowed, saveMedia) {
         noteSkipped('file size limit', rawKey); return '';
       }
       // Wikipedia's CSS embeds percent-encoded SVG icons; these require no fetch.
-      if (!css && /^data:image\/svg\+xml(?:;charset=[^;,]+)?(?:;base64)?,/i.test(raw)) {
+      if (!css && /^data:image\/svg\+xml(?:;(?:charset=[^;,]+|utf8))?(?:;base64)?,/i.test(raw)) {
         try {
           const comma = raw.indexOf(',');
           const payload = raw.slice(comma + 1);
@@ -179,12 +179,18 @@ async function rewriteCSS(css, base, assets, imports = new Set()) {
     const rewritten = await rewriteCSS(content, url, assets, new Set([...imports, url]));
     importsText.push(condition ? '@media ' + condition + '{' + rewritten + '}' : rewritten);
   }
-  const tokens = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/gi;
+  const tokens = /url\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)'|((?:\\[\s\S]|[^\\\s)])+))\s*\)/gi;
   const pieces = [];
   let last = 0;
   for (const match of css.matchAll(tokens)) {
     pieces.push(css.slice(last, match.index));
-    const ref = match[1] ?? match[2] ?? match[3];
+    const ref = (match[1] ?? match[2] ?? match[3]).replace(/\\(?:([0-9a-f]{1,6})\s?|(\r\n|[\n\r\f])|([\s\S]))/gi, (_all, hex, newline, char) => {
+      if (hex) {
+        const code = parseInt(hex, 16);
+        return String.fromCodePoint(code > 0 && code <= 0x10ffff ? code : 0xfffd);
+      }
+      return newline ? '' : char;
+    });
     const data = ref.startsWith('#') ? ref : await assets.get(ref, base);
     pieces.push(data ? 'url("' + data + '")' : 'url("")');
     last = match.index + match[0].length;
@@ -254,6 +260,10 @@ async function snapshot(html, url, resources, saveMedia) {
       element.replaceWith(...element.childNodes);
       continue;
     }
+    if (tag === 'input' && !['radio', 'checkbox'].includes(element.getAttribute('type')?.toLowerCase())) {
+      element.remove();
+      continue;
+    }
     const inlineCSS = element.getAttribute('style');
     const href = tag === 'a' ? element.getAttribute('href') : null;
     const media = ['audio', 'video', 'source', 'track'].includes(tag);
@@ -263,6 +273,11 @@ async function snapshot(html, url, resources, saveMedia) {
       element.getAttribute('srcset')?.trim().split(/\s|,/)[0] : null;
     for (const attr of [...element.attributes]) {
       if (!allowedAttrs.has(attr.name) && !attr.name.startsWith('aria-') && !layoutData.test(attr.name)) element.removeAttributeNode(attr);
+    }
+    if (tag === 'input' || tag === 'button') {
+      element.setAttribute('disabled', '');
+      element.removeAttribute('name');
+      if (tag === 'input') element.removeAttribute('value');
     }
     if (inlineCSS) element.setAttribute('style', await rewriteCSS(inlineCSS, base, assets));
     if (href !== null) {
