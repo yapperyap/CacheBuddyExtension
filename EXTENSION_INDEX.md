@@ -1,5 +1,5 @@
 # CacheBuddy extension index
-Source: https://github.com/yapperyap/CacheBuddyExtension, main. Version 1.1.5, verified 2026-11-06.
+Source: https://github.com/yapperyap/CacheBuddyExtension, main. Version 1.1.6, verified 2026-11-06.
 Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/.
 
 | Feature | Source in chromium/ and firefox/ |
@@ -16,7 +16,7 @@ Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/
 - Chromium MV3/minimum 116: service worker → offscreen capture document. Firefox MV2/minimum 142: persistent capture page; browser API and beginCapture differ. Maintain both.
 - popup saveMedia preference → staged worker intent → capture.js. On by default when no preference exists; explicit false is preserved. Media mode requests optional HTTP(S) host access; resume waits for all required permissions. Change checks use the archive's saved option (legacy archives default true).
 - Live-tab image currentSrc is copied into inert markup. Referenced external resources require browser permission; resource redirects omit credentials. Page crawling stays same-origin and respects robots/noarchive.
-- Limits: 40 pages, 90 distinct resources, 4 MB/resource, 12 MB embedded content/page, 96 MB/archive. Static snapshots; streaming/auth-required resources may fail. CSS retained with media disabled; binary resources omitted.
+- Limits: 40 pages, 256 distinct downloaded resources, 4 MB/resource, 12 MB embedded content/page, 96 MB/archive. Static snapshots; streaming/auth-required resources may fail. CSS retained with media disabled; binary resources omitted.
 - Viewer uses sandboxed srcdoc and data-only media CSP. Dismiss button hides header and switches grid to one row; no archive deletion.
 - Privacy link: https://yapperyap.github.io/CacheBuddyExtension/privacy.html
 - Contact text: Email: yapperyapemail@proton.me
@@ -31,3 +31,5 @@ Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/
 Chrome offscreen capture must use runtime messaging only: asset-permission messages go to worker.js (validates own capture.html sender, checks permissions there). Do not access chrome.permissions in capture.js. Regression tests must omit that API from offscreen mocks.
 
 Regression command: node offscreen-permissions.test.cjs (standard Node libraries; no dependencies). Exercises runtime-only capture against the actual worker handler, denied/invalid senders, media off, and default preference behavior.
+
+Snapshot order: img resources reserve budget before CSS decorations; inline SVG data URLs are normalized to base64 with file/page limits and no network permission request. Resource omissions are deduplicated and reported by cause. Empty/local CSS references are not counted. Regression: node resource-budget.test.cjs; live Ariane V88 markup and styles replayed with controlled network bodies (not installed-extension integration).
