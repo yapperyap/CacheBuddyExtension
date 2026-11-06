@@ -168,7 +168,7 @@ async function start(action) {
   try {
     const id = crypto.randomUUID();
     // Stage the click before the permission prompt can dismiss this popup.
-    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id});
+    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia: el('saveMedia').checked});
     const permission = chrome.permissions.request({origins: [hostPermission(source)]});
     const [stage, grant] = await Promise.allSettled([staged, permission]);
     if (stage.status === 'rejected') throw stage.reason;
@@ -211,6 +211,10 @@ async function poll() {
     polling = false;
   }
 }
+
+el('saveMedia').addEventListener('change', () => {
+  chrome.storage.local.set({saveMedia: el('saveMedia').checked}).catch(error => status(error.message, true));
+});
 
 el('save').addEventListener('click', () => start('save'));
 el('check').addEventListener('click', () => start('check'));
@@ -260,6 +264,8 @@ el('theme').addEventListener('change', async event => {
 try {
   document.body.style.setProperty('--popup-width', Math.round(screen.availWidth / 3) + 'px');
   el('theme').value = await applyTheme();
+  const preferences = await chrome.storage.local.get('saveMedia');
+  el('saveMedia').checked = preferences.saveMedia === true;
   [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const address = tab?.url || '';
   const viewer = address.startsWith(chrome.runtime.getURL('viewer.html') + '?');

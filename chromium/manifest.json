@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CacheBuddy",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "minimum_chrome_version": "116",
   "description": "Manually save a page or linked site pages and reopen them when their original URLs fail offline.",
   "permissions": ["activeTab", "scripting", "storage", "offscreen", "webNavigation", "unlimitedStorage"],

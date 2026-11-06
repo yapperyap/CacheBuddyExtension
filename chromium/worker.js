@@ -113,7 +113,7 @@ async function start(message) {
         justification: 'Parse and sanitize user-requested offline snapshots while the popup is closed.'
       });
     }
-    const response = await chrome.runtime.sendMessage({to: 'capture', type: 'start', mode, action, root, live});
+    const response = await chrome.runtime.sendMessage({to: 'capture', type: 'start', mode, action, root, live, saveMedia: message.saveMedia === true});
     if (!response?.ok) throw new Error(response?.error || 'The archive operation did not start.');
     return response;
   } finally {
@@ -132,7 +132,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       throw new Error('Choose an HTTP or HTTPS page.');
     }
     launchError = null;
-    await chrome.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, createdAt: Date.now()}});
+    await chrome.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, saveMedia: message.saveMedia === true, createdAt: Date.now()}});
     await resumeCapture();
     return {ok: true};
   });

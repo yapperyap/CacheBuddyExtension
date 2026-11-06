@@ -82,3 +82,6 @@ progress::-webkit-progress-value{background:var(--accent)}
 .legal .sheet{padding:24px}
 .legal h2{margin:21px 0 5px}
 @media(max-width:380px){.frame{grid-template-columns:minmax(0,1fr);padding-left:8px}.rail{flex-direction:row;padding:0 8px 6px;gap:12px}.sheet{padding-inline:14px}}
+
+.viewer.banner-dismissed{grid-template-rows:1fr}
+.viewer #dismissBanner{flex:none;margin-left:0;min-width:36px;min-height:36px;font-size:22px}
