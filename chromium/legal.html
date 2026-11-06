@@ -12,12 +12,12 @@
   <main class="sheet">
     <h1>Privacy, terms &amp; permissions</h1>
     <p><a href="https://yapperyap.github.io/CacheBuddyExtension/privacy.html" target="_blank" rel="noopener">Privacy Policy on the CacheBuddy website</a></p>
-    <p class="muted">Effective November 4, 2026 · CacheBuddy 1.1.3 · Made by Yap</p>
+    <p class="muted">Effective November 6, 2026 · CacheBuddy 1.1.4 · Made by Yap</p>
     <h2>What stays on your device</h2>
-    <p>CacheBuddy reads your active tab’s address when you open its popup. When you choose Cache, Check for changes, or Update, it processes the selected page or public pages on the selected site. A page snapshot may include private or account information in the current page, including content present in its markup. The extension stores saved content, original URLs, titles, dates, size information, and content hashes in your Chrome profile. It also stores your theme preference locally.</p>
+    <p>CacheBuddy reads your active tab’s address when you open its popup. When you choose Cache, Check for changes, or Update, it processes the selected page or public pages on the selected site. A page snapshot may include private or account information in the current page, including content present in its markup. The extension stores saved content, original URLs, titles, dates, size information, and content hashes in your Chrome profile. It also stores your theme and media-saving preferences locally.</p>
     <p>CacheBuddy listens for failed top-level web navigations and looks for a matching saved address. The extension does not record a browsing history. Chrome may retain your visits to original addresses and the local viewer in its usual history. CacheBuddy has no developer-operated backend, analytics, advertising, or account system. It does not sell or transmit your saved content to the developer or to data brokers.</p>
     <h2>Network requests and external links</h2>
-    <p>Saving or checking can send requests to the selected site for pages, resources, and robots.txt. These extension requests omit cookies and authentication credentials. The site can still see ordinary request information such as your IP address. Contact, Donate, and GitHub links open their respective services or your mail app only when you choose them. Those services handle information under their own policies.</p>
+    <p>Saving or checking can send requests to the selected site for pages and robots.txt. With media saving enabled, it can also request referenced images, styles, fonts, audio, and video from external hosts and follow resource redirects. These extension requests omit cookies and authentication credentials. The site can still see ordinary request information such as your IP address. Contact, Donate, and GitHub links open their respective services or your mail app only when you choose them. Those services handle information under their own policies.</p>
     <h2>Retention and deletion</h2>
     <p>Copies stay in your local Chrome profile until you delete them from Saved or remove the extension. Checking for changes does not replace a saved archive. Your saved copies may be visible to anyone with access to this Chrome profile.</p>
     <h2>Permitted use and third-party rights</h2>
@@ -26,7 +26,7 @@
     <h2>Chrome permissions</h2>
     <ul>
       <li><b>Active tab and scripting.</b> Read the selected tab and capture its rendered HTML after a page action.</li>
-      <li><b>Site access.</b> Requested for the selected host when you save or check. Used to fetch pages and assets from the selected origin.</li>
+      <li><b>Site access.</b> Requested for the selected host when you save or check. Media saving requests optional access to HTTP and HTTPS websites so referenced external media and CDN resources can be embedded. You can decline or revoke this access in extension settings.</li>
       <li><b>Web navigation.</b> Detect a failed navigation and open a matching offline copy.</li>
       <li><b>Offscreen document.</b> Parse and sanitize HTML and finish the requested job after the popup closes.</li>
       <li><b>Storage.</b> Save preferences locally. Expanded storage supports archived pages and their images, styles and fonts.</li>
