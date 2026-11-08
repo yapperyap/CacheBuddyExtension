@@ -241,7 +241,7 @@ async function snapshot(html, url, resources, saveMedia, removeAds) {
     async get(ref, base, css, styling) {
       if (embedded >= 12_000_000) { resources.noteSkipped('page size limit', ref); return ''; }
       const value = await resources.get(ref, base, css, styling);
-      embedded += css ? (value?.text.length || 0) : value.length;
+      embedded += css ? (value?.text?.length || 0) : value.length;
       if (embedded > 12_000_000) { resources.noteSkipped('page size limit', ref); return ''; }
       return value;
     }
