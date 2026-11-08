@@ -48,11 +48,17 @@ const root = __dirname;
   granted = true;
   assert.equal(await context.assetsFor('https://en.wikipedia.org', () => true, false).get(message.url, 'https://en.wikipedia.org'), '');
   assert.equal(requests, 1);
+  const withoutMedia = context.assetsFor('https://en.wikipedia.org', () => true, false);
+  assert.match(await withoutMedia.get(message.url, 'https://en.wikipedia.org', false, true), /^data:image\/png;base64,/);
+  assert.equal(requests, 2);
   for (const browser of ['chromium', 'firefox']) {
     const popup = fs.readFileSync(path.join(root, browser, 'popup.js'), 'utf8');
     const expression = popup.match(/el\('saveMedia'\)\.checked = ([^;]+);/)[1];
     for (const [value, expected] of [[undefined,true], [true,true], [false,false]])
       assert.equal(vm.runInNewContext(expression, {preferences: {saveMedia: value}}), expected);
+    const ads = popup.match(/el\('removeAds'\)\.checked = ([^;]+);/)[1];
+    for (const [value, expected] of [[undefined,false], [true,true], [false,false]])
+      assert.equal(vm.runInNewContext(ads, {preferences: {removeAds: value}}), expected);
   }
   console.log('PASS: offscreen runtime-only Wikimedia embedding, worker sender checks, denied access, media disabled, and default-on with preserved opt-out');
 })().catch(error => {console.error(error);process.exitCode = 1});

@@ -12,6 +12,6 @@ Website link: https://yapperyap.github.io/CacheBuddyExtension/
 
 Standard Firefox removes temporary add-ons on restart. Permanent installation requires a Mozilla-signed build.
 
-Choose **Cache page** or **Cache website** in the popup and approve site access. Website mode follows up to 40 linked public pages on the same origin. Reopen a saved address offline or open it from **Saved**. Offline copies open in the extension viewer, which displays the original URL. Snapshots are static and may omit interactive features and some assets.
+Choose **Cache page** or **Cache website** in the popup and approve site access. Website mode follows up to 40 linked public pages on the same origin. Reopen a saved address offline or open it from **Saved**. Offline copies open in the extension viewer, which displays the original URL. **Save images and other media** is on by default. **Remove ads** is off by default and omits recognized ad placements when enabled. Choose System, Paper, Ink, Moss, or Clay under **About → Color theme**. Snapshots are static and may omit site scripts, embedded frames, protected resources, and some interactive features.
 
 The extension source is MIT-licensed. The bundled IBM Plex Sans font is covered by the SIL Open Font License included in each browser folder.

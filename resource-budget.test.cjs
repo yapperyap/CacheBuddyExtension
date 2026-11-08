@@ -8,12 +8,27 @@ const path = require('node:path');
     const context = vm.createContext({URL, Blob, AbortSignal, TextEncoder, atob, Map, Set, console,
       chrome: {runtime: {onMessage: {addListener() {}}, sendMessage: async () => {permissionChecks++;return {ok:true,granted}}}},
       browser: {permissions: {contains: async () => {permissionChecks++;return granted}}},
+      pageURL: (value, base) => new URL(value, base).href,
       webURL: (value, base) => {try {const u=new URL(value,base);return /^https?:$/.test(u.protocol)?u:null}catch{return null}},
       fetch: async url => {requests++;return new Response(url.includes('large') ? 'x'.repeat(4_000_001) : 'image', {status: url.includes('missing') ? 404 : 200, headers:{'content-type':'image/png'}})},
       FileReader: class {readAsDataURL(blob) {blob.arrayBuffer().then(bytes=>{this.result='data:'+blob.type+';base64,'+Buffer.from(bytes).toString('base64');this.onload()})}}
     });
     const source=fs.readFileSync(path.join(__dirname,browser,'capture.js'),'utf8').replace(/^import .*\n/,'').replaceAll('export function','function');
     vm.runInContext(source+'\njob={};this.make=()=>assetsFor("https://en.wikipedia.org",()=>true,true);',context);
+    const imported = await context.rewriteCSS(
+      '@layer base,decor; @import "theme.css" layer(decor) supports(selector(:has(*))) screen;' +
+      ' .label{content:"url(literal)/*keep*/"}',
+      'https://en.wikipedia.org/styles/main.css',
+      {get: async (ref, base, css) => {
+        if (css) return {text: '.icon{background:url(icon.svg#mark)}', url: 'https://cdn.example/new/theme.css'};
+        assert.equal(base, 'https://cdn.example/new/theme.css');
+        assert.equal(ref, 'icon.svg#mark');
+        return 'data:image/svg+xml;base64,QQ==#mark';
+      }}
+    );
+    assert.match(imported, /@layer base,decor;\s*@layer decor\{@supports selector\(:has\(\*\)\)\{@media screen/);
+    assert.match(imported, /data:image\/svg\+xml;base64,QQ==#mark/);
+    assert(imported.includes('content:"url(literal)/*keep*/"'));
     let assets=context.make();
     const svg='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h10v10"/></svg>');
     for(let i=0;i<300;i++)assert.match(await assets.get(svg,'https://en.wikipedia.org'),/^data:image\/svg\+xml;base64,/);
