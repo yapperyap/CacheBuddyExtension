@@ -1,8 +1,8 @@
-CacheBuddy 1.1.0
+CacheBuddy 1.1.8
 Made by Yap
 
 INSTALL
-1. Extract CacheBuddy-1.1.0.zip to a folder you can keep.
+1. Extract CacheBuddy-1.1.8.zip to a folder you can keep.
 2. In Chrome 116 or later, open chrome://extensions and enable Developer mode.
 3. Choose Load unpacked and select the extracted folder containing manifest.json.
 4. Open CacheBuddy from Chrome's Extensions menu. Pin it if you want one-click access.
@@ -13,6 +13,7 @@ Approve site access if prompted. The popup shows progress and any skipped items.
 Capture starts after approval, even if Chrome closes the popup. Reopen it to
 see progress. The Cache view shows page and website status and lets you uncache
 the selected saved copy.
+Remove ads is optional and off by default. Set a color theme in About.
 You can close the popup once capture starts. Use Saved to open or delete copies.
 
 To reopen a saved page offline, enter its original address. After Chrome reports
@@ -35,10 +36,10 @@ the current page and origin homepage. It checks robots.txt and applicable
 noarchive directives on fetched pages, and uses no login credentials. The site
 limit is 40 pages. Captures are limited to 96 MB each.
 
-The viewer displays static content and may omit some assets. It supports
-same-origin styles, common images and font assets within size limits. Scripts,
-forms, embedded media, PDFs, protected fetches and cross-origin assets are
-outside the capture scope. For private rendered pages, save only if you are
+The viewer displays a static snapshot. Styles, fonts, common media, and inline
+vector graphics can be preserved within browser permissions and size limits.
+Site scripts, form submissions, embedded frames, and protected resources may
+be unavailable. For private rendered pages, save only if you are
 comfortable keeping the visible content in the current browser profile.
 
 PRIVACY AND TERMS

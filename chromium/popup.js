@@ -162,6 +162,7 @@ async function start(action) {
   const archive = selectedArchive();
   confirming = null;
   const saveMedia = action === 'check' ? (archive?.saveMedia ?? true) : el('saveMedia').checked;
+  const removeAds = action === 'check' ? archive?.removeAds === true : el('removeAds').checked;
   const source = mode === 'site' && archive ? archive.root : root;
   pending = true;
   editing = false;
@@ -169,7 +170,7 @@ async function start(action) {
   try {
     const id = crypto.randomUUID();
     // Stage the click before the permission prompt can dismiss this popup.
-    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia});
+    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia, removeAds});
     const permission = chrome.permissions.request({origins: saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(source)]});
     const [stage, grant] = await Promise.allSettled([staged, permission]);
     if (stage.status === 'rejected') throw stage.reason;
@@ -212,6 +213,10 @@ async function poll() {
     polling = false;
   }
 }
+
+el('removeAds').addEventListener('change', () => {
+  chrome.storage.local.set({removeAds: el('removeAds').checked}).catch(error => status(error.message, true));
+});
 
 el('saveMedia').addEventListener('change', () => {
   chrome.storage.local.set({saveMedia: el('saveMedia').checked}).catch(error => status(error.message, true));
@@ -265,8 +270,9 @@ el('theme').addEventListener('change', async event => {
 try {
   document.body.style.setProperty('--popup-width', Math.round(screen.availWidth / 3) + 'px');
   el('theme').value = await applyTheme();
-  const preferences = await chrome.storage.local.get('saveMedia');
+  const preferences = await chrome.storage.local.get(['saveMedia', 'removeAds']);
   el('saveMedia').checked = preferences.saveMedia !== false;
+  el('removeAds').checked = preferences.removeAds === true;
   [tab] = await chrome.tabs.query({active: true, currentWindow: true});
   const address = tab?.url || '';
   const viewer = address.startsWith(chrome.runtime.getURL('viewer.html') + '?');

@@ -37,7 +37,7 @@ legend{padding:0;margin-bottom:4px}
 .option,.setting{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--rule)}
 .option:first-of-type{border-top:1px solid var(--rule)}
 .option span,.setting span{display:grid}
-.option input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.option input{flex:none;width:16px;height:16px;margin:0;accent-color:var(--accent)}
 fieldset:disabled{opacity:.62}
 .cache-state{margin:0 0 12px;font-size:12px}
 .cache-state>div{display:grid;grid-template-columns:100px 1fr;gap:8px;padding:4px 0;border-bottom:1px solid var(--rule)}
@@ -76,7 +76,7 @@ progress::-webkit-progress-value{background:var(--accent)}
 .viewer .mast span{margin-left:0}
 .viewer .mast a{flex:1;overflow-wrap:anywhere;min-width:120px}
 .viewer .mast button{margin-left:auto}
-.viewer iframe{border:0;border-top:1px solid var(--rule);height:100%;width:100%;background:white}
+.viewer iframe{color-scheme:light dark;min-height:0;border:0;border-top:1px solid var(--rule);height:100%;width:100%;background:white}
 .viewer .notice{align-self:start;justify-self:center;margin:24px;max-width:520px}
 .legal{max-width:720px;margin:0 auto;padding:24px}
 .legal .sheet{padding:24px}
