@@ -104,6 +104,17 @@ async function start(message) {
             copy.querySelectorAll('input[type=radio],input[type=checkbox]').forEach((input, index) => {
               input.toggleAttribute('checked', Boolean(toggles[index]?.checked));
             });
+            const options = document.querySelectorAll('option');
+            copy.querySelectorAll('option').forEach((option, index) => {
+              option.toggleAttribute('selected', Boolean(options[index]?.selected));
+            });
+            for (const sheet of document.adoptedStyleSheets || []) {
+              if (sheet.disabled) continue;
+              const style = document.createElement('style');
+              style.media = sheet.media.mediaText;
+              style.textContent = Array.from(sheet.cssRules, rule => rule.cssText).join('\n');
+              copy.querySelector('head')?.append(style);
+            }
             const html = copy.outerHTML;
             return {url: location.href, html: html.length <= limit ? html : null};
           },
@@ -114,7 +125,7 @@ async function start(message) {
         // A public fetch still works when Firefox disallows injection.
       }
     }
-    const response = beginCapture({mode, action, root, live, saveMedia: message.saveMedia === true});
+    const response = beginCapture({mode, action, root, live, saveMedia: message.saveMedia === true, removeAds: message.removeAds === true});
     if (!response?.ok) throw new Error(response?.error || 'The archive operation did not start.');
     return response;
   } finally {
@@ -136,7 +147,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
       throw new Error('Choose an HTTP or HTTPS page.');
     }
     launchError = null;
-    await browser.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, saveMedia: message.saveMedia === true, createdAt: Date.now()}});
+    await browser.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, saveMedia: message.saveMedia === true, removeAds: message.removeAds === true, createdAt: Date.now()}});
     await resumeCapture();
     return {ok: true};
   });

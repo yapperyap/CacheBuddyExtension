@@ -46,7 +46,7 @@ async function request(url, limit, expected, followRedirects = false) {
   } finally {
     await reader.cancel().catch(() => {});
   }
-  return {blob: new Blob(chunks, {type}), headers: response.headers};
+  return {blob: new Blob(chunks, {type}), headers: response.headers, url: response.url};
 }
 
 async function robotsRules(origin) {
@@ -80,10 +80,15 @@ async function robotsRules(origin) {
   };
 }
 
-const forbidden = 'script,noscript,template,iframe,frame,frameset,object,embed,portal,svg,math,canvas,select,textarea,base,meta,link,style';
-const allowedTags = new Set(('input label button audio video source track a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup data dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark menu nav ol p picture pre q rp rt ruby s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var wbr').split(' '));
-const allowedAttrs = new Set(('checked disabled for id class title dir lang role hidden open alt width height align valign colspan rowspan scope start reversed type value datetime span style').split(' '));
-const layoutData = /^data-(?:theme|mode|state|layout|color-scheme)$/;
+const forbidden = 'script,noscript,template,iframe,frame,frameset,object,embed,portal,canvas,base,meta,link,style';
+const adPlacements = 'ins.adsbygoogle,[data-ad-client][data-ad-slot],[data-google-query-id],[id^="div-gpt-ad"],amp-ad';
+const svgNamespace = 'http://www.w3.org/2000/svg';
+const mathNamespace = 'http://www.w3.org/1998/Math/MathML';
+const svgTags = new Set(('svg g defs symbol use path rect circle ellipse line polyline polygon text tspan textPath title desc clipPath mask pattern marker linearGradient radialGradient stop filter feBlend feColorMatrix feComposite feDropShadow feFlood feGaussianBlur feMerge feMergeNode feOffset').split(' '));
+const mathTags = new Set(('math mrow mi mn mo mtext mspace ms mfrac msqrt mroot mstyle merror mpadded mphantom menclose msub msup msubsup munder mover munderover mtable mtr mtd semantics annotation').split(' '));
+const allowedTags = new Set(('input label button form fieldset legend select option optgroup textarea output dialog meter progress audio video source track a abbr address article aside b bdi bdo blockquote br caption cite code col colgroup data dd del details dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hgroup hr i img ins kbd li main mark menu nav ol p picture pre q rp rt ruby s samp section small span strong sub summary sup table tbody td tfoot th thead time tr u ul var wbr').split(' '));
+const allowedAttrs = new Set(('checked disabled for id class title dir lang role hidden open alt width height align valign colspan rowspan scope start reversed type value datetime span style name selected multiple size rows cols placeholder readonly required min max step low high optimum label tabindex wrap srclang kind default muted loop controls playsinline').split(' '));
+const layoutData = /^data-[a-z0-9_.:-]+$/;
 const deniedByMeta = (name, content) => /^(robots|cachebuddy)$/i.test(name) && /\bnoarchive\b/i.test(content);
 const localData = /^data:(?:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|vnd.microsoft.icon)|font\/(?:woff2?|ttf|otf)|audio\/(?:mpeg|mp4|ogg|wav|webm|aac|flac|x-wav)|video\/(?:mp4|webm|ogg)|text\/vtt);base64,[a-z0-9+/=\s]+$/i;
 const assetType = /^(?:image\/(?:png|jpeg|gif|webp|avif|bmp|svg\+xml|x-icon|vnd\.microsoft\.icon)|audio\/(?:mpeg|mp4|ogg|wav|webm|aac|flac|x-wav)|video\/(?:mp4|webm|ogg)|text\/vtt|font\/(?:woff2?|ttf|otf)|application\/(?:font-woff|font-sfnt|vnd\.ms-fontobject))$/;
@@ -115,8 +120,8 @@ function assetsFor(origin, allowed, saveMedia) {
     noteSkipped,
     get fetched() { return [...resources].filter(([, value]) => value).map(([key]) => key); },
     failed,
-    async get(value, base, css = false) {
-      if (!css && !saveMedia) return '';
+    async get(value, base, css = false, styling = false) {
+      if (!css && !styling && !saveMedia) return '';
       const raw = value.trim();
       if (!raw || raw.startsWith('#')) return '';
       const rawKey = (css ? 'css:' : 'data:') + raw;
@@ -138,74 +143,105 @@ function assetsFor(origin, allowed, saveMedia) {
       }
       const url = webURL(raw, base);
       if (!url || (url.origin === origin && !allowed(url.href))) { noteSkipped(url ? 'publisher restriction' : 'unsupported URL', rawKey); return ''; }
+      const fragment = url.hash;
       url.hash = '';
       const key = (css ? 'css:' : 'data:') + url.href;
-      if (resources.has(key)) return resources.get(key);
+      if (resources.has(key)) {
+        const cached = resources.get(key);
+        return css || !cached ? cached : cached + fragment;
+      }
       const permission = url.origin + '/*';
       if (!await browser.permissions.contains({origins: [permission]})) { noteSkipped('site permission denied', key); return ''; }
       if (resources.size >= MAX_ASSETS || bytes >= ARCHIVE_BYTES) { noteSkipped(resources.size >= MAX_ASSETS ? 'resource count limit' : 'archive size limit', key); return ''; }
       job.phase = 'Saving resources from ' + url.pathname.slice(0, 100);
       let valueOut = '';
       try {
-        const {blob} = await request(url.href, css ? PAGE_BYTES : ASSET_BYTES, css ? /^text\/css$/ : assetType, true);
+        const {blob, url: finalURL} = await request(url.href, css ? PAGE_BYTES : ASSET_BYTES, css ? /^text\/css$/ : assetType, true);
         if (bytes + blob.size > ARCHIVE_BYTES) throw new Error('Resource budget reached.');
         bytes += blob.size;
-        valueOut = css ? await blob.text() : await dataURL(blob);
+        valueOut = css ? {text: await blob.text(), url: finalURL || url.href} : await dataURL(blob);
       } catch (error) {
         failed.add(key);
         const reason = /HTTP \d+/.exec(error.message)?.[0] || (/size limit|budget/i.test(error.message) ? 'file or archive size limit' : /content type/i.test(error.message) ? 'unsupported content type' : 'network or server failure');
         noteSkipped(reason, key);
       }
       resources.set(key, valueOut);
-      return valueOut;
+      return css || !valueOut ? valueOut : valueOut + fragment;
     }
   };
 }
 
 async function rewriteCSS(css, base, assets, imports = new Set()) {
-  css = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  const importsFound = /@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)|"([^"]*)"|'([^']*)')([^;{}]*);/gi;
+  css = css.replace(/"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\/\*[\s\S]*?\*\//g,
+    token => token.startsWith('/*') ? ' ' : token).replace(/^\s*@charset\s+"[^"]*";/i, '');
+  const importsFound = /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)|"([^"]*)"|'([^']*)')([^;{}]*);/gi;
   const headers = [];
-  css = css.replace(importsFound, (_match, a, b, c, d, e, condition) => {
+  css = css.replace(importsFound, (match, a, b, c, d, e, condition) => {
+    if (condition === undefined) return match;
     headers.push([a ?? b ?? c ?? d ?? e, condition.trim()]);
-    return '';
+    return '/*cachebuddy-import:' + (headers.length - 1) + '*/';
   });
   const importsText = [];
-  for (const [ref, condition] of headers.slice(0, 20)) {
+  for (const [index, [ref, condition]] of headers.slice(0, 20).entries()) {
     const url = pageURL(ref, base);
-    if (!url || imports.has(url) || imports.size >= 8 || /^(layer|supports)\b/i.test(condition)) continue;
+    if (!url || imports.has(url) || imports.size >= 8) continue;
     const content = await assets.get(url, base, true);
     if (!content) continue;
-    const rewritten = await rewriteCSS(content, url, assets, new Set([...imports, url]));
-    importsText.push(condition ? '@media ' + condition + '{' + rewritten + '}' : rewritten);
+    let rewritten = await rewriteCSS(content.text, content.url, assets, new Set([...imports, url, content.url]));
+    let media = condition;
+    const layer = /^layer(?:\(([^)]*)\)|(?=\s|$))\s*/i.exec(media);
+    if (layer) media = media.slice(layer[0].length);
+    const supports = /^supports\(/i.exec(media);
+    if (supports) {
+      let depth = 1;
+      const tail = media.slice(supports[0].length);
+      const end = [...tail.matchAll(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[()]/g)].find(token => {
+        if (token[0] === '(') depth++;
+        if (token[0] === ')') depth--;
+        return depth === 0;
+      });
+      if (!end) continue;
+      const condition = tail.slice(0, end.index);
+      const test = /^\s*[\w-]+\s*:/.test(condition) ? '(' + condition + ')' : condition;
+      media = tail.slice(end.index + 1).trim();
+      if (media) rewritten = '@media ' + media + '{' + rewritten + '}';
+      rewritten = '@supports ' + test + '{' + rewritten + '}';
+    } else if (media) {
+      rewritten = '@media ' + media + '{' + rewritten + '}';
+    }
+    if (layer) rewritten = '@layer ' + (layer[1] || '') + '{' + rewritten + '}';
+    importsText[index] = rewritten;
   }
-  const tokens = /url\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)'|((?:\\[\s\S]|[^\\\s)])+))\s*\)/gi;
+  const tokens = /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|(?<![\w-])url\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)'|((?:\\[\s\S]|[^\\\s)])+))\s*\)/gi;
   const pieces = [];
   let last = 0;
   for (const match of css.matchAll(tokens)) {
+    const token = match[1] ?? match[2] ?? match[3];
+    if (token === undefined) continue;
     pieces.push(css.slice(last, match.index));
-    const ref = (match[1] ?? match[2] ?? match[3]).replace(/\\(?:([0-9a-f]{1,6})\s?|(\r\n|[\n\r\f])|([\s\S]))/gi, (_all, hex, newline, char) => {
+    const ref = token.replace(/\\(?:([0-9a-f]{1,6})\s?|(\r\n|[\n\r\f])|([\s\S]))/gi, (_all, hex, newline, char) => {
       if (hex) {
         const code = parseInt(hex, 16);
         return String.fromCodePoint(code > 0 && code <= 0x10ffff ? code : 0xfffd);
       }
       return newline ? '' : char;
     });
-    const data = ref.startsWith('#') ? ref : await assets.get(ref, base);
-    pieces.push(data ? 'url("' + data + '")' : 'url("")');
+    const data = ref.startsWith('#') ? ref : await assets.get(ref, base, false, true);
+    pieces.push(data ? 'url(' + JSON.stringify(data) + ')' : 'url("")');
     last = match.index + match[0].length;
     if (pieces.length >= 1_200) break;
   }
-  return importsText.join('\n') + '\n' + pieces.join('') + css.slice(last);
+  return (pieces.join('') + css.slice(last)).replace(/\/\*cachebuddy-import:(\d+)\*\//g,
+    (_token, index) => importsText[index] || '');
 }
 
-async function snapshot(html, url, resources, saveMedia) {
+async function snapshot(html, url, resources, saveMedia, removeAds) {
   let embedded = 0;
   const assets = {
-    async get(ref, base, css) {
+    async get(ref, base, css, styling) {
       if (embedded >= 12_000_000) { resources.noteSkipped('page size limit', ref); return ''; }
-      const value = await resources.get(ref, base, css);
-      embedded += value.length;
+      const value = await resources.get(ref, base, css, styling);
+      embedded += css ? (value?.text.length || 0) : value.length;
       if (embedded > 12_000_000) { resources.noteSkipped('page size limit', ref); return ''; }
       return value;
     }
@@ -213,55 +249,82 @@ async function snapshot(html, url, resources, saveMedia) {
   const template = document.createElement('template');
   template.innerHTML = html;
   const content = template.content;
-  const wrapperAttrs = {};
+  if (removeAds) content.querySelectorAll(adPlacements).forEach(element => element.remove());
+  const wrappers = {};
   const rootTags = /<(html|body)(?=\s|>)(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi;
   for (const match of html.matchAll(rootTags)) {
     const tag = match[1].toLowerCase();
-    if (Object.hasOwn(wrapperAttrs, tag)) continue;
+    if (Object.hasOwn(wrappers, tag)) continue;
     const inert = document.createElement('template');
     inert.innerHTML = match[0].replace(/^<(html|body)/i, '<div');
     const node = inert.content.firstElementChild;
     for (const attr of [...node.attributes]) {
-      if (!['id', 'class', 'dir', 'lang'].includes(attr.name) && !layoutData.test(attr.name)) {
+      if (!['id', 'class', 'dir', 'lang', 'style'].includes(attr.name) && !layoutData.test(attr.name)) {
         node.removeAttributeNode(attr);
       }
     }
-    wrapperAttrs[tag] = node.outerHTML.slice(4, -7);
-    if (Object.keys(wrapperAttrs).length === 2) break;
+    wrappers[tag] = node;
+    if (Object.keys(wrappers).length === 2) break;
   }
   for (const meta of content.querySelectorAll('meta[name][content]')) {
     if (deniedByMeta(meta.name, meta.content)) throw new Error('The publisher requests that this page not be archived.');
   }
-  const title = content.querySelector('title')?.textContent.trim().slice(0, 200) || new URL(url).hostname;
+  const title = [...content.querySelectorAll('title')].find(node => node.namespaceURI !== svgNamespace)?.textContent.trim().slice(0, 200) || new URL(url).hostname;
   const baseRef = content.querySelector('base[href]')?.getAttribute('href');
   const base = webURL(baseRef || url, url)?.href || url;
-  // Reserve the download/page budget for actual article images before CSS icons.
-  const imageData = new Map();
-  for (const image of content.querySelectorAll('img')) {
-    const ref = image.getAttribute('src') || image.getAttribute('data-src') ||
-      image.getAttribute('srcset')?.trim().split(/\s|,/)[0];
-    if (ref) imageData.set(image, await assets.get(ref, base));
+  for (const wrapper of Object.values(wrappers)) {
+    if (wrapper.hasAttribute('style')) {
+      wrapper.setAttribute('style', await rewriteCSS(wrapper.getAttribute('style'), base, assets));
+    }
   }
-  const styles = [];
+  // Reserve space for the main stylesheets before downloading other resources.
+  const sheets = [];
   for (const element of [...content.querySelectorAll('style,link[rel~="stylesheet"]')].slice(0, 40)) {
     const href = element.getAttribute('href');
     const cssURL = href && pageURL(href, base);
-    const css = cssURL ? await assets.get(cssURL, base, true) : element.textContent;
-    if (!css) continue;
-    const rewritten = await rewriteCSS(css, cssURL || base, assets, new Set(cssURL ? [cssURL] : []));
-    const media = element.getAttribute('media');
-    styles.push(media ? '@media ' + media + '{' + rewritten + '}' : rewritten);
+    const css = cssURL ? await assets.get(cssURL, base, true) : {text: element.textContent, url: base};
+    if (css?.text) sheets.push({css, cssURL, media: element.getAttribute('media')});
   }
-  content.querySelectorAll(forbidden + ',title').forEach(element => element.remove());
+  const imageData = new Map();
+  for (const image of content.querySelectorAll('img,input[type="image"]')) {
+    const ref = image.getAttribute('src') || image.getAttribute('data-src') ||
+      image.getAttribute('srcset')?.trim().split(/\s/)[0].replace(/,+$/, '');
+    if (ref) {
+      const data = await assets.get(ref, base);
+      if (data) imageData.set(image, data);
+    }
+  }
+  const styles = [];
+  for (const {css, cssURL, media} of sheets) {
+    const rewritten = await rewriteCSS(css.text, css.url, assets, new Set(cssURL ? [cssURL, css.url] : []));
+    const style = document.createElement('style');
+    if (media) style.setAttribute('media', media);
+    style.textContent = rewritten.replace(/<\/style/gi, '<\\/style');
+    styles.push(style.outerHTML);
+  }
+  content.querySelectorAll(forbidden + ',title').forEach(element => {
+    if (element.localName !== 'title' || element.namespaceURI !== svgNamespace) element.remove();
+  });
   const links = new Set();
   for (const element of content.querySelectorAll('*')) {
     const tag = element.localName;
-    if (!allowedTags.has(tag) || element.namespaceURI !== 'http://www.w3.org/1999/xhtml') {
-      element.replaceWith(...element.childNodes);
+    if (!content.contains(element)) continue;
+    const svg = element.namespaceURI === svgNamespace;
+    const math = element.namespaceURI === mathNamespace;
+    if (svg || math) {
+      if (!(svg ? svgTags : mathTags).has(tag)) { element.remove(); continue; }
+      for (const attr of [...element.attributes]) {
+        const name = attr.localName.toLowerCase();
+        if (name.startsWith('on') || name === 'src' || attr.name === 'xml:base' ||
+            (name === 'href' && (!svg || !/^#[^\s]+$/.test(attr.value)))) element.removeAttributeNode(attr);
+      }
+      if (element.hasAttribute('style')) {
+        element.setAttribute('style', await rewriteCSS(element.getAttribute('style'), base, assets));
+      }
       continue;
     }
-    if (tag === 'input' && !['radio', 'checkbox'].includes(element.getAttribute('type')?.toLowerCase())) {
-      element.remove();
+    if (!allowedTags.has(tag) || element.namespaceURI !== 'http://www.w3.org/1999/xhtml') {
+      element.replaceWith(...element.childNodes);
       continue;
     }
     const inlineCSS = element.getAttribute('style');
@@ -269,16 +332,16 @@ async function snapshot(html, url, resources, saveMedia) {
     const media = ['audio', 'video', 'source', 'track'].includes(tag);
     const mediaSrc = media ? element.getAttribute('src') : null;
     const poster = tag === 'video' ? element.getAttribute('poster') : null;
-    const image = tag === 'img' ? element.getAttribute('src') || element.getAttribute('data-src') ||
-      element.getAttribute('srcset')?.trim().split(/\s|,/)[0] : null;
     for (const attr of [...element.attributes]) {
       if (!allowedAttrs.has(attr.name) && !attr.name.startsWith('aria-') && !layoutData.test(attr.name)) element.removeAttributeNode(attr);
     }
-    if (tag === 'input' || tag === 'button') {
-      element.setAttribute('disabled', '');
-      element.removeAttribute('name');
-      if (tag === 'input') element.removeAttribute('value');
+    if (tag === 'input') {
+      const type = (element.getAttribute('type') || 'text').toLowerCase();
+      if (!['radio', 'checkbox', 'button', 'submit', 'reset', 'range', 'color'].includes(type)) {
+        element.removeAttribute('value');
+      }
     }
+    if (tag === 'textarea') element.textContent = '';
     if (inlineCSS) element.setAttribute('style', await rewriteCSS(inlineCSS, base, assets));
     if (href !== null) {
       const target = webURL(href, base);
@@ -310,17 +373,12 @@ async function snapshot(html, url, resources, saveMedia) {
         if (data) element.setAttribute('poster', data);
       }
     }
-    if (image) {
-      const data = imageData.get(element) || '';
-      if (data) element.setAttribute('src', data);
-    }
+    if (imageData.has(element)) element.setAttribute('src', imageData.get(element));
   }
-  // Text in a style element needs escaping before embedding in srcdoc.
-  const safeCSS = styles.join('\n').replace(/<\/style/gi, '<\\/style');
   const csp = "default-src 'none'; img-src data:; media-src data:; font-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
-  const output = '<!doctype html><html' + (wrapperAttrs.html || '') + '><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp +
-    '"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + safeCSS +
-    '</style></head><body' + (wrapperAttrs.body || '') + '>' + template.innerHTML + '</body></html>';
+  const output = '<!doctype html><html' + (wrappers.html?.outerHTML.slice(4, -7) || '') + '><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp +
+    '"><meta name="viewport" content="width=device-width,initial-scale=1">' + styles.join('') +
+    '</head><body' + (wrappers.body?.outerHTML.slice(4, -7) || '') + '>' + template.innerHTML + '</body></html>';
   return {title, html: output, links: [...links]};
 }
 
@@ -329,13 +387,16 @@ async function hash(value) {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function run({mode, action, root, live, saveMedia = false}) {
+async function run({mode, action, root, live, saveMedia = false, removeAds = false}) {
   const origin = new URL(root).origin;
   const id = mode === 'site' ? 'site:' + origin : 'page:' + root;
   const previous = await getArchive(id);
   if (action === 'check' && !previous) throw new Error('Save this archive before checking for changes.');
   const allowed = mode === 'site' ? await robotsRules(origin) : () => true;
-  if (action === 'check') saveMedia = previous.saveMedia ?? true;
+  if (action === 'check') {
+    saveMedia = previous.saveMedia ?? true;
+    removeAds = previous.removeAds === true;
+  }
   const assets = assetsFor(origin, allowed, saveMedia);
   const queue = [root];
   const seen = new Set(queue);
@@ -363,7 +424,7 @@ async function run({mode, action, root, live, saveMedia = false}) {
         }
         html = await response.blob.text();
       }
-      const copy = await snapshot(html, url, assets, saveMedia);
+      const copy = await snapshot(html, url, assets, saveMedia, removeAds);
       const size = new Blob([copy.html]).size;
       if (bytes + size > ARCHIVE_BYTES) {
         capped = true;
@@ -402,7 +463,7 @@ async function run({mode, action, root, live, saveMedia = false}) {
   job.phase = 'Writing the archive…';
   const savedAt = Date.now();
   await writeArchive(id, {
-    id, root, mode, origin, saveMedia, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
+    id, root, mode, origin, saveMedia, removeAds, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
     skipped: failures.length, skippedAssets: assets.skipped, resourceReasons: assets.reasons, assets: assets.fetched, capped
   }, pages);
   job.outcome = 'saved';
