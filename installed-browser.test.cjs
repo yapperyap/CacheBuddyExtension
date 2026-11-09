@@ -108,10 +108,11 @@ async function firefoxTest(root) {
   const firefox = require('selenium-webdriver/firefox');
   const uuid = 'daf9cab3-cfa3-426f-9ef3-76374c5120d5';
   const id = manifest.browser_specific_settings.gecko.id;
-  const options = new firefox.Options().addArguments('-headless', '-remote-allow-system-access')
+  const options = new firefox.Options().addArguments('-headless')
     .setPreference('extensions.webextensions.uuids', JSON.stringify({[id]:uuid}));
   if (process.env.CACHEBUDDY_FIREFOX) options.setBinary(process.env.CACHEBUDDY_FIREFOX);
-  const driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).build();
+  const service = new firefox.ServiceBuilder().addArguments('--allow-system-access');
+  const driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
   const navigate = async url => {
     await driver.setContext(firefox.Context.CHROME);
     try {
