@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CacheBuddy",
-  "version": "1.1.8",
+  "version": "1.1.10",
   "minimum_chrome_version": "116",
   "description": "Manually save a page or linked site pages and reopen them when their original URLs fail offline.",
   "permissions": ["activeTab", "scripting", "storage", "offscreen", "webNavigation", "unlimitedStorage"],
@@ -9,5 +9,7 @@
   "incognito": "not_allowed",
   "background": {"service_worker": "worker.js", "type": "module"},
   "action": {"default_popup": "popup.html", "default_title": "CacheBuddy", "default_icon": "icons/32.png"},
-  "icons": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"}
+  "icons": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"},
+  "sandbox": {"pages": ["replay.html"]},
+  "content_security_policy": {"sandbox": "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; base-uri 'none'; form-action 'none'"}
 }

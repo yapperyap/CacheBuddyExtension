@@ -53,7 +53,7 @@ async function resumeCapture() {
     await chrome.storage.session.remove(pendingKey);
     return;
   }
-  const origins = intent.saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(intent.root)];
+  const origins = (intent.saveMedia || intent.saveScripts) ? ['https://*/*', 'http://*/*'] : [hostPermission(intent.root)];
   if (!await chrome.permissions.contains({origins})) return;
   await chrome.storage.session.remove(pendingKey);
   try {
@@ -86,7 +86,7 @@ async function start(message) {
     if (!root || !['page', 'site'].includes(mode) || !['save', 'check'].includes(action)) {
       throw new Error('Choose an HTTP or HTTPS page.');
     }
-    if (!await chrome.permissions.contains({origins: message.saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(root)]})) {
+    if (!await chrome.permissions.contains({origins: (message.saveMedia || message.saveScripts) ? ['https://*/*', 'http://*/*'] : [hostPermission(root)]})) {
       throw new Error('Allow access to this site to continue.');
     }
     const job = await currentJob();
@@ -136,7 +136,7 @@ async function start(message) {
         justification: 'Parse and sanitize user-requested offline snapshots while the popup is closed.'
       });
     }
-    const response = await chrome.runtime.sendMessage({to: 'capture', type: 'start', mode, action, root, live, saveMedia: message.saveMedia === true, removeAds: message.removeAds === true});
+    const response = await chrome.runtime.sendMessage({to: 'capture', type: 'start', mode, action, root, live, saveMedia: message.saveMedia === true, removeAds: message.removeAds === true, saveScripts: message.saveScripts === true, uncapped: message.uncapped === true});
     if (!response?.ok) throw new Error(response?.error || 'The archive operation did not start.');
     return response;
   } finally {
@@ -158,6 +158,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   }
   if (sender.url !== popupURL) return;
   let operation;
+  if (message.type === 'cancel') operation = chrome.runtime.sendMessage({to: 'capture', type: 'cancel'});
   if (message.type === 'status') operation = currentJob().then(value => ({ok: true, job: value?.running ? value : launchError || value}));
   if (message.type === 'stage') operation = serializePermission(async () => {
     const {id, mode, action, tabId} = message;
@@ -166,7 +167,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       throw new Error('Choose an HTTP or HTTPS page.');
     }
     launchError = null;
-    await chrome.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, saveMedia: message.saveMedia === true, removeAds: message.removeAds === true, createdAt: Date.now()}});
+    await chrome.storage.session.set({[pendingKey]: {id, mode, action, tabId, root, saveMedia: message.saveMedia === true, removeAds: message.removeAds === true, saveScripts: message.saveScripts === true, uncapped: message.uncapped === true, createdAt: Date.now()}});
     await resumeCapture();
     return {ok: true};
   });

@@ -1,4 +1,5 @@
 import {getPage, hasPage, webURL} from './db.js';
+import {connectAppearance} from './appearance.js';
 import {applyTheme} from './theme.js';
 
 const query = new URLSearchParams(location.search);
@@ -31,10 +32,35 @@ try {
   } else {
     document.title = page.title + ' · Offline copy';
     label.textContent = 'Offline copy · ' + new Date(page.savedAt).toLocaleDateString();
-    frame.addEventListener('load', function connect() {
+    const replay = document.getElementById('replay');
+    const sandboxSupported = true;
+    let playing = false, replayToken = null;
+    replay.hidden = !page.scripts?.length || !sandboxSupported;
+    replay.addEventListener('click', () => {
+      playing = !playing;
+      replay.textContent = playing ? 'Return to saved page' : 'Run saved scripts';
+      if (playing) {
+        replayToken = crypto.randomUUID();
+        frame.setAttribute('sandbox', 'allow-scripts');
+        frame.src = 'replay.html#' + replayToken;
+        frame.removeAttribute('srcdoc');
+      } else {
+        showSnapshot();
+      }
+    });
+    addEventListener('message', event => {
+      if (!playing || !replayToken || event.source !== frame.contentWindow || event.origin !== 'null' ||
+          event.data?.type !== 'cachebuddy-replay-ready' || event.data.token !== replayToken) return;
+      replayToken = null;
+      frame.contentWindow.postMessage({type: 'cachebuddy-replay', html: page.html, scripts: page.scripts}, '*');
+    });
+    frame.addEventListener('load', () => {
+      if (!playing) connect();
+    });
+    function connect() {
       const copy = frame.contentDocument;
       if (copy?.URL !== 'about:srcdoc') return;
-      frame.removeEventListener('load', connect);
+      connectAppearance(copy, address.hostname);
       function scrollToFragment(fragment) {
         try {
           const name = decodeURIComponent(fragment.slice(1));
@@ -71,8 +97,13 @@ try {
         }
         location.assign(target.href);
       });
-    });
-    frame.srcdoc = page.html;
+    }
+    function showSnapshot() {
+      frame.setAttribute('sandbox', 'allow-same-origin allow-top-navigation-by-user-activation');
+      frame.srcdoc = page.html;
+      frame.removeAttribute('src');
+    }
+    showSnapshot();
     notice.hidden = true;
     frame.hidden = false;
   }

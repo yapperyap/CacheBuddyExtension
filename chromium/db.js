@@ -23,14 +23,21 @@ export function pageURL(value, base) {
 let connection;
 function database() {
   if (!connection) connection = new Promise((resolve, reject) => {
-    const request = indexedDB.open('cachebuddy', 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore('archives', {keyPath: 'id'});
-      const pages = request.result.createObjectStore('pages', {keyPath: ['archive', 'url']});
-      pages.createIndex('url', 'url');
-      pages.createIndex('archive', 'archive');
+    const request = indexedDB.open('cachebuddy', 2);
+    request.onupgradeneeded = event => {
+      if (event.oldVersion < 1) {
+        request.result.createObjectStore('archives', {keyPath: 'id'});
+        const pages = request.result.createObjectStore('pages', {keyPath: ['archive', 'url']});
+        pages.createIndex('url', 'url');
+        pages.createIndex('archive', 'archive');
+      }
+      request.result.createObjectStore('draft', {keyPath: 'url'});
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => { db.close(); connection = null; };
+      resolve(db);
+    };
     request.onerror = () => { connection = null; reject(request.error); };
   });
   return connection;
@@ -67,10 +74,23 @@ export async function hasPage(value) {
   return Boolean(await result(pages.index('url').getKey(url)));
 }
 
-export async function writeArchive(id, archive, pages = []) {
+async function updateDraft(operation) {
   const db = await database();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['archives', 'pages'], 'readwrite');
+    const transaction = db.transaction('draft', 'readwrite');
+    operation(transaction.objectStore('draft'));
+    transaction.oncomplete = resolve;
+    transaction.onabort = () => reject(transaction.error || new Error('Could not stage the website archive.'));
+  });
+}
+
+export const clearDraft = () => updateDraft(store => store.clear());
+export const appendDraft = page => updateDraft(store => store.put(page));
+
+export async function writeArchive(id, archive, pages = [], staged = false) {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(staged ? ['archives', 'pages', 'draft'] : ['archives', 'pages'], 'readwrite');
     const archiveStore = transaction.objectStore('archives');
     const pageStore = transaction.objectStore('pages');
     const cursor = pageStore.index('archive').openCursor(IDBKeyRange.only(id));
@@ -83,7 +103,20 @@ export async function writeArchive(id, archive, pages = []) {
       }
       if (archive) {
         archiveStore.put(archive);
-        for (const page of pages) pageStore.put({...page, archive: id, savedAt: archive.savedAt});
+        const save = page => pageStore.put({...page, archive: id, savedAt: archive.savedAt});
+        if (staged) {
+          const draft = transaction.objectStore('draft');
+          const stagedPages = draft.openCursor();
+          stagedPages.onsuccess = () => {
+            const entry = stagedPages.result;
+            if (!entry) return;
+            save(entry.value);
+            entry.delete();
+            entry.continue();
+          };
+        } else {
+          pages.forEach(save);
+        }
       } else {
         archiveStore.delete(id);
       }

@@ -1,4 +1,4 @@
-import {getArchive, pageURL, webURL, writeArchive} from './db.js';
+import {appendDraft, clearDraft, getArchive, pageURL, webURL, writeArchive} from './db.js';
 
 const MAX_PAGES = 40;
 const MAX_ASSETS = 256;
@@ -8,9 +8,21 @@ const ARCHIVE_BYTES = 96_000_000;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 let job = null;
 
+function cancelCapture() {
+  if (!job?.running || job.writing) return {ok: false, error: 'There is no capture to stop.'};
+  job.cancelled = true;
+  job.phase = 'Stopping…';
+  return {ok: true};
+}
+
+function checkCancelled() {
+  if (job?.cancelled) throw new Error('Capture stopped. The previous archive was kept.');
+}
+
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message.to !== 'capture' || sender.id !== chrome.runtime.id || sender.tab) return;
   if (message.type === 'status') reply(job);
+  if (message.type === 'cancel') reply(cancelCapture());
   if (message.type !== 'start') return;
   if (job?.running) return reply({ok: false, error: 'An archive operation is already running.'});
   job = {running: true, root: message.root, mode: message.mode, action: message.action,
@@ -18,7 +30,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   reply({ok: true});
   run(message).catch(error => {
     job.phase = error.message;
-    job.outcome = 'error';
+    job.outcome = job.cancelled ? 'cancelled' : 'error';
   }).finally(() => { job.running = false; });
 });
 
@@ -101,9 +113,10 @@ function dataURL(blob) {
   });
 }
 
-function assetsFor(origin, allowed, saveMedia) {
+function assetsFor(origin, allowed, saveMedia, uncapped = false) {
   const resources = new Map();
   const failed = new Set();
+  const fetched = new Set();
   let bytes = 0;
   const omissions = new Map();
   function noteSkipped(reason, key) {
@@ -117,19 +130,29 @@ function assetsFor(origin, allowed, saveMedia) {
       return counts;
     },
     noteSkipped,
-    get fetched() { return [...resources].filter(([, value]) => value).map(([key]) => key); },
+    get fetched() { return [...fetched]; },
+    resetPage() {
+      if (!uncapped) return;
+      // Keep one page's payloads in memory while retaining the archive's asset index.
+      resources.clear();
+      bytes = 0;
+    },
     failed,
-    async get(value, base, css = false, styling = false) {
-      if (!css && !styling && !saveMedia) return '';
+    async get(value, base, kind = false, styling = false) {
+      checkCancelled();
+      const css = kind === true;
+      const script = kind === 'script';
+      if (!css && !script && !styling && !saveMedia) return '';
       const raw = value.trim();
       if (!raw || raw.startsWith('#')) return '';
-      const rawKey = (css ? 'css:' : 'data:') + raw;
-      if (!css && localData.test(raw)) {
+      const prefix = css ? 'css:' : script ? 'script:' : 'data:';
+      const rawKey = prefix + raw;
+      if (!css && !script && localData.test(raw)) {
         if (raw.length <= ASSET_BYTES) return raw;
         noteSkipped('file size limit', rawKey); return '';
       }
       // Wikipedia's CSS embeds percent-encoded SVG icons; these require no fetch.
-      if (!css && /^data:image\/svg\+xml(?:;(?:charset=[^;,]+|utf8))?(?:;base64)?,/i.test(raw)) {
+      if (!css && !script && /^data:image\/svg\+xml(?:;(?:charset=[^;,]+|utf8))?(?:;base64)?,/i.test(raw)) {
         try {
           const comma = raw.indexOf(',');
           const payload = raw.slice(comma + 1);
@@ -144,29 +167,30 @@ function assetsFor(origin, allowed, saveMedia) {
       if (!url || (url.origin === origin && !allowed(url.href))) { noteSkipped(url ? 'publisher restriction' : 'unsupported URL', rawKey); return ''; }
       const fragment = url.hash;
       url.hash = '';
-      const key = (css ? 'css:' : 'data:') + url.href;
+      const key = prefix + url.href;
       if (resources.has(key)) {
         const cached = resources.get(key);
-        return css || !cached ? cached : cached + fragment;
+        return css || script || !cached ? cached : cached + fragment;
       }
       const access = await chrome.runtime.sendMessage({to: 'worker', type: 'asset-permission', url: url.href});
       if (!access?.ok) throw new Error(access?.error || 'Could not check media access.');
       if (!access.granted) { noteSkipped('site permission denied', key); return ''; }
-      if (resources.size >= MAX_ASSETS || bytes >= ARCHIVE_BYTES) { noteSkipped(resources.size >= MAX_ASSETS ? 'resource count limit' : 'archive size limit', key); return ''; }
+      if (!uncapped && (resources.size >= MAX_ASSETS || bytes >= ARCHIVE_BYTES)) { noteSkipped(resources.size >= MAX_ASSETS ? 'resource count limit' : 'archive size limit', key); return ''; }
       job.phase = 'Saving resources from ' + url.pathname.slice(0, 100);
       let valueOut = '';
       try {
-        const {blob, url: finalURL} = await request(url.href, css ? PAGE_BYTES : ASSET_BYTES, css ? /^text\/css$/ : assetType, true);
-        if (bytes + blob.size > ARCHIVE_BYTES) throw new Error('Resource budget reached.');
+        const {blob, url: finalURL} = await request(url.href, css ? PAGE_BYTES : ASSET_BYTES, css ? /^text\/css$/ : script ? /^(?:(?:text|application)\/(?:x-)?(?:javascript|ecmascript))$/ : assetType, true);
+        if (!uncapped && bytes + blob.size > ARCHIVE_BYTES) throw new Error('Resource budget reached.');
         bytes += blob.size;
-        valueOut = css ? {text: await blob.text(), url: finalURL || url.href} : await dataURL(blob);
+        valueOut = css || script ? {text: await blob.text(), url: finalURL || url.href} : await dataURL(blob);
+        fetched.add(key);
       } catch (error) {
         failed.add(key);
         const reason = /HTTP \d+/.exec(error.message)?.[0] || (/size limit|budget/i.test(error.message) ? 'file or archive size limit' : /content type/i.test(error.message) ? 'unsupported content type' : 'network or server failure');
         noteSkipped(reason, key);
       }
       resources.set(key, valueOut);
-      return css || !valueOut ? valueOut : valueOut + fragment;
+      return css || script || !valueOut ? valueOut : valueOut + fragment;
     }
   };
 }
@@ -235,7 +259,7 @@ async function rewriteCSS(css, base, assets, imports = new Set()) {
     (_token, index) => importsText[index] || '');
 }
 
-async function snapshot(html, url, resources, saveMedia, removeAds) {
+async function snapshot(html, url, resources, saveMedia, removeAds, saveScripts = false) {
   let embedded = 0;
   const assets = {
     async get(ref, base, css, styling) {
@@ -301,6 +325,27 @@ async function snapshot(html, url, resources, saveMedia, removeAds) {
     if (media) style.setAttribute('media', media);
     style.textContent = rewritten.replace(/<\/style/gi, '<\\/style');
     styles.push(style.outerHTML);
+  }
+  const scripts = [];
+  if (saveScripts) {
+    for (const element of content.querySelectorAll('script')) {
+      checkCancelled();
+      const type = (element.getAttribute('type') || '').trim().toLowerCase();
+      if (type && !['module', 'importmap', 'application/json'].includes(type) &&
+          !/^(?:text|application)\/(?:x-)?(?:javascript|ecmascript)$/.test(type)) continue;
+      if (element.hasAttribute('nomodule')) continue;
+      const src = element.getAttribute('src');
+      let text = element.textContent;
+      if (src) text = (await assets.get(src, base, 'script'))?.text || '';
+      else {
+        if (text.length > ASSET_BYTES || embedded + text.length > 12_000_000) {
+          resources.noteSkipped('inline script size limit', text.slice(0, 128));
+          continue;
+        }
+        embedded += text.length;
+      }
+      if (text) scripts.push({type: ['module', 'importmap', 'application/json'].includes(type) ? type : '', text});
+    }
   }
   content.querySelectorAll(forbidden + ',title').forEach(element => {
     if (element.localName !== 'title' || element.namespaceURI !== svgNamespace) element.remove();
@@ -379,7 +424,7 @@ async function snapshot(html, url, resources, saveMedia, removeAds) {
   const output = '<!doctype html><html' + (wrappers.html?.outerHTML.slice(4, -7) || '') + '><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp +
     '"><meta name="viewport" content="width=device-width,initial-scale=1">' + styles.join('') +
     '</head><body' + (wrappers.body?.outerHTML.slice(4, -7) || '') + '>' + template.innerHTML + '</body></html>';
-  return {title, html: output, links: [...links]};
+  return {title, html: output, scripts, links: [...links]};
 }
 
 async function hash(value) {
@@ -387,7 +432,7 @@ async function hash(value) {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function run({mode, action, root, live, saveMedia = false, removeAds = false}) {
+async function run({mode, action, root, live, saveMedia = false, removeAds = false, saveScripts = false, uncapped = false}) {
   const origin = new URL(root).origin;
   const id = mode === 'site' ? 'site:' + origin : 'page:' + root;
   const previous = await getArchive(id);
@@ -396,8 +441,22 @@ async function run({mode, action, root, live, saveMedia = false, removeAds = fal
   if (action === 'check') {
     saveMedia = previous.saveMedia ?? true;
     removeAds = previous.removeAds === true;
+    saveScripts = previous.saveScripts === true;
+    uncapped = previous.uncapped === true;
   }
-  const assets = assetsFor(origin, allowed, saveMedia);
+  uncapped = mode === 'site' && uncapped;
+  const staged = uncapped && action !== 'check';
+  // Discard an orphaned draft after a browser restart before starting another job.
+  await clearDraft();
+  try {
+    await crawl({mode, action, root, live, saveMedia, removeAds, saveScripts, uncapped, staged, origin, id, previous, allowed});
+  } finally {
+    if (staged) await clearDraft().catch(console.error);
+  }
+}
+
+async function crawl({mode, action, root, live, saveMedia, removeAds, saveScripts, uncapped, staged, origin, id, previous, allowed}) {
+  const assets = assetsFor(origin, allowed, saveMedia, uncapped);
   const queue = [root];
   const seen = new Set(queue);
   const pages = [];
@@ -405,12 +464,13 @@ async function run({mode, action, root, live, saveMedia = false, removeAds = fal
   const failures = [];
   const enqueue = url => {
     if (!url || new URL(url).origin !== origin || seen.has(url)) return;
-    if (seen.size >= MAX_PAGES) { capped = true; return; }
+    if (!uncapped && seen.size >= MAX_PAGES) { capped = true; return; }
     seen.add(url);
     queue.push(url);
   };
   if (mode === 'site') enqueue(origin + '/');
   while (queue.length) {
+    checkCancelled();
     const url = queue.shift();
     job.total = job.done + queue.length + 1;
     job.phase = (action === 'check' ? 'Checking ' : 'Reading ') + new URL(url).pathname;
@@ -424,25 +484,32 @@ async function run({mode, action, root, live, saveMedia = false, removeAds = fal
         }
         html = await response.blob.text();
       }
-      const copy = await snapshot(html, url, assets, saveMedia, removeAds);
-      const size = new Blob([copy.html]).size;
-      if (bytes + size > ARCHIVE_BYTES) {
+      const copy = await snapshot(html, url, assets, saveMedia, removeAds, saveScripts);
+      checkCancelled();
+      const scriptData = copy.scripts.length ? JSON.stringify(copy.scripts) : '';
+      const size = new Blob([copy.html, scriptData]).size;
+      if (!uncapped && bytes + size > ARCHIVE_BYTES) {
         capped = true;
         throw new Error('The archive reached its 96 MB limit.');
       }
-      const digest = await hash(copy.title + '\n' + copy.html);
-      pages.push({url, title: copy.title, html: copy.html, digest, size});
+      const digest = await hash(copy.title + '\n' + copy.html + scriptData);
+      const record = {url, title: copy.title, digest, size};
+      const page = {...record, html: copy.html, scripts: copy.scripts};
+      if (staged) await appendDraft(page);
+      pages.push(staged || action === 'check' ? record : page);
       bytes += size;
       if (mode === 'site') copy.links.forEach(enqueue);
     } catch (error) {
-      if (url === root) throw error;
+      if (url === root || job.cancelled || error.name === 'QuotaExceededError') throw error;
       failures.push(url);
       job.skipped = failures.length;
     }
+    assets.resetPage();
     job.done++;
     job.total = job.done + queue.length;
     if (queue.length) await delay(250);
   }
+  checkCancelled();
   const byURL = Object.fromEntries(pages.map(page => [page.url, page.digest]));
   const uncertain = Boolean(previous && (failures.some(url => Object.hasOwn(previous.byURL, url)) ||
     previous.assets?.some(key => assets.failed.has(key))));
@@ -460,12 +527,13 @@ async function run({mode, action, root, live, saveMedia = false, removeAds = fal
     return;
   }
   if (uncertain) throw new Error('Some previously saved pages or resources could not be read. The existing archive was kept.');
+  job.writing = true;
   job.phase = 'Writing the archive…';
   const savedAt = Date.now();
   await writeArchive(id, {
-    id, root, mode, origin, saveMedia, removeAds, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
+    id, root, mode, origin, saveMedia, removeAds, saveScripts, uncapped, savedAt, title: pages[0].title, bytes, count: pages.length, byURL,
     skipped: failures.length, skippedAssets: assets.skipped, resourceReasons: assets.reasons, assets: assets.fetched, capped
-  }, pages);
+  }, pages, staged);
   job.outcome = 'saved';
   job.phase = pages.length + (pages.length === 1 ? ' page saved' : ' pages saved') + ' for offline use.' + (assets.skipped ? ' Skipped resources: ' + Object.entries(assets.reasons).map(([reason, count]) => count + ' ' + reason).join(' · ') + '.' : '');
 }
