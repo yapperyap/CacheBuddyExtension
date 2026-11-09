@@ -108,11 +108,21 @@ async function firefoxTest(root) {
   const firefox = require('selenium-webdriver/firefox');
   const uuid = 'daf9cab3-cfa3-426f-9ef3-76374c5120d5';
   const id = manifest.browser_specific_settings.gecko.id;
-  const options = new firefox.Options().addArguments('-headless')
+  const options = new firefox.Options().addArguments('-headless', '-remote-allow-system-access')
     .setPreference('extensions.webextensions.uuids', JSON.stringify({[id]:uuid}));
   if (process.env.CACHEBUDDY_FIREFOX) options.setBinary(process.env.CACHEBUDDY_FIREFOX);
   const driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).build();
-  const extension = 'moz-extension://' + uuid;
+  const navigate = async url => {
+    await driver.setContext(firefox.Context.CHROME);
+    try {
+      await driver.executeScript(
+        'gBrowser.selectedBrowser.loadURI(Services.io.newURI(arguments[0]), {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()});', url);
+    } finally {
+      await driver.setContext(firefox.Context.CONTENT);
+    }
+    await wait(() => driver.executeScript('return location.href === arguments[0] && document.readyState === "complete";', url)
+      .catch(() => false), 'Firefox could not open the installed extension page');
+  };
   const evalPage = fn => driver.executeAsyncScript('const done=arguments[arguments.length-1]; Promise.resolve().then(' + fn.toString() + ').then(value=>done(value??null),err=>done({error:String(err)}));').then(value => {
     if (value?.error) throw new Error(value.error);
     return value;
@@ -121,8 +131,12 @@ async function firefoxTest(root) {
     const xpi = join(temp, 'cachebuddy.xpi');
     execFileSync('zip', ['-qr', xpi, '.'], {cwd: source});
     assert.equal(await driver.installAddon(xpi, true), id);
-    await verifyPopup(evalPage, url => driver.get(url), extension + '/popup.html');
-    await driver.get(extension + '/capture.html');
+    await driver.setContext(firefox.Context.CHROME);
+    const extension = await driver.executeScript(
+      'return "moz-extension://" + WebExtensionPolicy.getByID(arguments[0]).mozExtensionHostname;', id);
+    await driver.setContext(firefox.Context.CONTENT);
+    await verifyPopup(evalPage, navigate, extension + '/popup.html');
+    await navigate(extension + '/capture.html');
     const result = await driver.executeAsyncScript(
       'const root=arguments[0], done=arguments[arguments.length-1];' +
       'import(new URL("capture.js",location.href).href).then(({beginCapture,captureStatus})=>{' +
@@ -132,7 +146,7 @@ async function firefoxTest(root) {
       '}).catch(error=>done({phase:String(error)}));', root);
     assert.equal(result.outcome, 'saved', result.phase);
     await new Promise(resolve => server.close(resolve));
-    await verifyPage(evalPage, url => driver.get(url), extension, root, async () => {
+    await verifyPage(evalPage, navigate, extension, root, async () => {
       await driver.switchTo().frame(await driver.findElement(By.id('copy')));
       await wait(() => driver.executeScript('return document.body.dataset.isolated === "yes"'), 'Firefox sandbox did not run the cached code');
       await driver.findElement(By.css('button')).click();
