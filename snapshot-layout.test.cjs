@@ -49,6 +49,54 @@ const {parseHTML} = require('linkedom');
     assert(!copy.html.includes('secret'));assert(!copy.html.includes('token'));assert(!copy.html.includes('private'));
     assert(result.querySelector('style').textContent.includes('.cdx-radio__label'));
     assert(result.querySelector('img').getAttribute('src').startsWith('data:'));
+    const scripted = '<div><script src="/widget.js"></script><script>showWidget()</script><script type="application/json">{"visible":true}</script></div>';
+    const scriptResources = {get: async (url, base, kind) => {
+      assert.equal(kind, 'script');
+      assert.equal(url, '/widget.js');
+      return {text: 'function showWidget() {}', url: new URL(url, base).href};
+    }, noteSkipped() {}};
+    const withScripts = await context.snapshot(scripted, 'https://example.org/', scriptResources, false, false, true);
+    assert.deepEqual(Array.from(withScripts.scripts, entry => entry.text), ['function showWidget() {}', 'showWidget()', '{"visible":true}']);
+    assert(!withScripts.html.includes('<script'));
+    const withoutScripts = await context.snapshot(scripted, 'https://example.org/', scriptResources, false, false, false);
+    assert.equal(withoutScripts.scripts.length, 0);
+    let draft = new Map(), archive, stopAt = 0;
+    Object.assign(context, {
+      Blob, TextEncoder, crypto: require('node:crypto').webcrypto, AbortSignal,
+      setTimeout: resolve => queueMicrotask(resolve),
+      clearDraft: async () => draft.clear(),
+      appendDraft: async page => {
+        draft.set(page.url, page);
+        if (draft.size === stopAt) assert(context.cancelCapture().ok);
+      },
+      getArchive: async () => archive,
+      writeArchive: async (_id, record, pages, staged) => {
+        archive = record;
+        assert.equal(record.count, staged ? draft.size : pages.length);
+      },
+      fetch: async value => {
+        const address = new URL(value);
+        if (address.pathname === '/robots.txt') return new Response('User-agent: *');
+        const links = Array.from({length: 44}, (_, index) => '<a href="/p/' + index + '">Page</a>').join('');
+        return new Response('<title>Site fixture</title><main>' + links + '</main>', {headers: {'Content-Type': 'text/html'}});
+      }
+    });
+    const runSite = uncapped => {
+      vm.runInContext('job = {running: true, done: 0}', context);
+      return context.run({mode: 'site', action: 'save', root: 'https://example.org/', uncapped});
+    };
+    await runSite(false);
+    assert.equal(archive.count, 40);
+    assert(archive.capped);
+    await runSite(true);
+    assert.equal(archive.count, 45);
+    assert(!archive.capped);
+    assert.equal(draft.size, 0);
+    const previous = archive;
+    stopAt = 3;
+    await assert.rejects(runSite(true), /Capture stopped/);
+    assert.equal(archive, previous);
+    assert.equal(draft.size, 0);
     console.log(browser+': PASS radio/label layout structure, checked state, preserved controls and SVG, stripped sensitive values/handlers, opt-in ad removal, embedded images');
   }
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -1,0 +1,155 @@
+const assert = require('node:assert/strict');
+const {createServer} = require('node:http');
+const {mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync} = require('node:fs');
+const {tmpdir} = require('node:os');
+const {join, resolve} = require('node:path');
+const {execFileSync} = require('node:child_process');
+const browser = process.argv[2];
+const temp = mkdtempSync(join(tmpdir(), 'cachebuddy-test-'));
+const source = join(temp, 'extension');
+cpSync(resolve(browser), source, {recursive: true});
+const manifestPath = join(source, 'manifest.json');
+const manifest = JSON.parse(readFileSync(manifestPath));
+// Grant access to the local fixture in the test profile only.
+if (browser === 'chromium') manifest.host_permissions = ['http://127.0.0.1/*'];
+else manifest.permissions.push('http://127.0.0.1/*');
+writeFileSync(manifestPath, JSON.stringify(manifest));
+
+let hits = 0;
+const server = createServer((req, res) => {
+  if (req.url === '/widget.js') {
+    res.setHeader('Content-Type', 'application/javascript');
+    return res.end("document.querySelector('button').onclick = () => document.querySelector('output').textContent = 'worked';");
+  }
+  if (req.url === '/blocked') { hits++; return res.end('blocked'); }
+  res.setHeader('Content-Type', 'text/html');
+  res.end('<!doctype html><title>CacheBuddy test</title><main><h1>Offline fixture</h1><button>Run fixture</button><output>initial</output><script src="/widget.js"></script><script>fetch("http://127.0.0.1:' + server.address().port + '/blocked").catch(() => {}); try { parent.document.body.dataset.unsafe="1" } catch { document.body.dataset.isolated="yes" }</script></main>');
+});
+
+async function wait(operation, reason) {
+  const end = Date.now() + 15000;
+  do {
+    const result = await operation();
+    if (result) return result;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  } while (Date.now() < end);
+  throw new Error(reason);
+}
+
+async function verifyPopup(evaluate, navigate, popupURL) {
+  await navigate(popupURL);
+  await wait(() => evaluate(() => Boolean(document.querySelector('#host')?.textContent !== 'Loading…')), 'Popup initialization timed out');
+  const controls = await evaluate(() => {
+    document.querySelector('[data-view=settings]').click();
+    const options = [...document.querySelectorAll('#captureOptions input')].map(e => e.id);
+    document.getElementById('uncapped').click();
+    document.querySelector('[data-view=themes]').click();
+    const theme = document.querySelector('#theme');
+    theme.value = 'ink';
+    theme.dispatchEvent(new Event('change'));
+    return {options, nav: [...document.querySelectorAll('[data-view]')].map(b => b.dataset.view), visible: !document.getElementById('themes').hidden};
+  });
+  assert.deepEqual(controls.options, ['saveMedia', 'removeAds', 'saveScripts', 'uncapped']);
+  assert.deepEqual(controls.nav, ['capture', 'archive', 'settings', 'themes', 'about']);
+  assert(controls.visible);
+  await wait(() => evaluate(async () => {
+    const {theme, uncapped} = await (globalThis.browser ?? chrome).storage.local.get(['theme', 'uncapped']);
+    return theme === 'ink' && uncapped === true && document.documentElement.dataset.theme === 'ink';
+  }), 'Settings were not persisted and applied');
+  await navigate(popupURL);
+  await wait(() => evaluate(() => document.getElementById('uncapped').checked && document.getElementById('theme').value === 'ink'), 'Settings did not survive reopening');
+}
+
+async function verifyPage(evaluate, navigate, extension, root, frame) {
+  await navigate(extension + '/viewer.html?url=' + encodeURIComponent(root));
+  await wait(() => evaluate(() => document.querySelector('#copy').contentDocument?.querySelector('h1')?.textContent === 'Offline fixture'), 'Saved copy did not open');
+  assert.equal(await evaluate(() => document.querySelector('#copy').contentDocument.querySelector('output').textContent), 'initial');
+  await evaluate(() => document.getElementById('replay').click());
+  await frame();
+  assert.equal(await evaluate(() => document.body.dataset.unsafe || null), null);
+  assert.equal(hits, 0);
+}
+
+async function chromiumTest(root) {
+  const {chromium} = require('playwright');
+  const context = await chromium.launchPersistentContext(join(temp, 'profile'), {
+    channel: 'chromium', headless: true,
+    args: ['--disable-extensions-except=' + source, '--load-extension=' + source]
+  });
+  try {
+    const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
+    const extension = worker.url().split('/').slice(0, 3).join('/');
+    const page = context.pages()[0] || await context.newPage();
+    const evalPage = fn => page.evaluate(fn);
+    const navigate = url => page.goto(url);
+    await verifyPopup(evalPage, navigate, extension + '/popup.html');
+    const started = await worker.evaluate(async root => {
+      await chrome.offscreen.createDocument({url:'capture.html', reasons:['DOM_PARSER'], justification:'Test installed capture'});
+      return chrome.runtime.sendMessage({to:'capture',type:'start',mode:'page',action:'save',root,saveScripts:true});
+    }, root);
+    assert(started?.ok);
+    const result = await wait(() => worker.evaluate(async () => {
+      const job = await chrome.runtime.sendMessage({to:'capture',type:'status'});
+      return job?.running ? null : job;
+    }), 'Chromium capture timed out');
+    assert.equal(result.outcome, 'saved', result.phase);
+    await context.setOffline(true);
+    await verifyPage(evalPage, navigate, extension, root, async () => {
+      const copy = page.frameLocator('#copy');
+      await copy.locator('body[data-isolated=yes]').waitFor();
+      await copy.getByRole('button',{name:'Run fixture'}).click();
+      await copy.getByText('worked',{exact:true}).waitFor();
+    });
+  } finally { await context.close(); }
+}
+
+async function firefoxTest(root) {
+  const {Builder, By} = require('selenium-webdriver');
+  const firefox = require('selenium-webdriver/firefox');
+  const uuid = 'daf9cab3-cfa3-426f-9ef3-76374c5120d5';
+  const id = manifest.browser_specific_settings.gecko.id;
+  const options = new firefox.Options().addArguments('-headless')
+    .setPreference('extensions.webextensions.uuids', JSON.stringify({[id]:uuid}));
+  if (process.env.CACHEBUDDY_FIREFOX) options.setBinary(process.env.CACHEBUDDY_FIREFOX);
+  const driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).build();
+  const extension = 'moz-extension://' + uuid;
+  const evalPage = fn => driver.executeAsyncScript('const done=arguments[arguments.length-1]; Promise.resolve().then(' + fn.toString() + ').then(value=>done(value??null),err=>done({error:String(err)}));').then(value => {
+    if (value?.error) throw new Error(value.error);
+    return value;
+  });
+  try {
+    const xpi = join(temp, 'cachebuddy.xpi');
+    execFileSync('zip', ['-qr', xpi, '.'], {cwd: source});
+    assert.equal(await driver.installAddon(xpi, true), id);
+    await verifyPopup(evalPage, url => driver.get(url), extension + '/popup.html');
+    await driver.get(extension + '/capture.html');
+    const result = await driver.executeAsyncScript(
+      'const root=arguments[0], done=arguments[arguments.length-1];' +
+      'import(new URL("capture.js",location.href).href).then(({beginCapture,captureStatus})=>{' +
+      'const response=beginCapture({mode:"page",action:"save",root,saveScripts:true});' +
+      'if(!response.ok)return done(response);const poll=setInterval(()=>{' +
+      'const job=captureStatus();if(job&&!job.running){clearInterval(poll);done(job);}},100);' +
+      '}).catch(error=>done({phase:String(error)}));', root);
+    assert.equal(result.outcome, 'saved', result.phase);
+    await new Promise(resolve => server.close(resolve));
+    await verifyPage(evalPage, url => driver.get(url), extension, root, async () => {
+      await driver.switchTo().frame(await driver.findElement(By.id('copy')));
+      await wait(() => driver.executeScript('return document.body.dataset.isolated === "yes"'), 'Firefox sandbox did not run the cached code');
+      await driver.findElement(By.css('button')).click();
+      assert.equal(await driver.findElement(By.css('output')).getText(), 'worked');
+      await driver.switchTo().defaultContent();
+    });
+  } finally { await driver.quit(); }
+}
+
+(async () => {
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const root = 'http://127.0.0.1:' + server.address().port + '/';
+    await (browser === 'chromium' ? chromiumTest(root) : firefoxTest(root));
+    console.log(browser + ': installed capture, offline playback, and persistent settings passed');
+  } finally {
+    server.close();
+    rmSync(temp,{recursive:true,force:true});
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });

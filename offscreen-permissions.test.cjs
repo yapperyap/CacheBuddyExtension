@@ -56,6 +56,12 @@ const root = __dirname;
     const expression = popup.match(/el\('saveMedia'\)\.checked = ([^;]+);/)[1];
     for (const [value, expected] of [[undefined,true], [true,true], [false,false]])
       assert.equal(vm.runInNewContext(expression, {preferences: {saveMedia: value}}), expected);
+    const scripts = popup.match(/el\('saveScripts'\)\.checked = ([^;]+);/)[1];
+    for (const [value, expected] of [[undefined,true], [true,true], [false,false]])
+      assert.equal(vm.runInNewContext(scripts, {preferences: {saveScripts: value}}), expected);
+    const limits = popup.match(/el\('uncapped'\)\.checked = ([^;]+);/)[1];
+    for (const [value, expected] of [[undefined,false], [true,true], [false,false]])
+      assert.equal(vm.runInNewContext(limits, {preferences: {uncapped: value}}), expected);
     const ads = popup.match(/el\('removeAds'\)\.checked = ([^;]+);/)[1];
     for (const [value, expected] of [[undefined,false], [true,true], [false,false]])
       assert.equal(vm.runInNewContext(ads, {preferences: {removeAds: value}}), expected);

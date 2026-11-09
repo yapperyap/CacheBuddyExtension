@@ -1,23 +1,23 @@
 # CacheBuddy extension index
-Source: https://github.com/yapperyap/CacheBuddyExtension, main. Version 1.1.8.
+Source: https://github.com/yapperyap/CacheBuddyExtension, Version 1.1.10 candidate.
 Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/.
 
 | Feature | Source in chromium/ and firefox/ |
 | --- | --- |
 | Versions, permissions and entry points | manifest.json |
-| Cache/Saved/About, media and ad options, theme, contact | popup.html, popup.js, ui.css |
+| Cache/Saved/Settings/Themes/About, media, script and ad options, crawl limits, theme, contact | popup.html, popup.js, ui.css |
 | Staged user intent and host permissions, offline navigation | worker.js |
 | HTML sanitization, resource embedding, comparison | capture.js, capture.html |
-| IndexedDB and URL helpers | db.js |
-| Cached page and dismissible banner | viewer.html, viewer.js, ui.css |
+| IndexedDB and URL helpers | db.js (including staged uncapped crawls) |
+| Cached page and dismissible banner | viewer.html, viewer.js, appearance.js, replay.html, replay.js, ui.css |
 | Theme and local legal disclosure | theme.js, legal.html, legal.js |
 
 ## Important flows
 - Chromium MV3/minimum 116: service worker → offscreen capture document. Firefox MV2/minimum 142: persistent capture page; browser API and beginCapture differ. Maintain both.
-- popup saveMedia preference → staged worker intent → capture.js. On by default when no preference exists; explicit false is preserved. Media mode requests optional HTTP(S) host access; resume waits for all required permissions. Remove Ads defaults off. Change checks reuse the archive’s options (legacy defaults are media on and ad removal off).
+- popup saveMedia preference → staged worker intent → capture.js. On by default when no preference exists; explicit false is preserved. Media mode requests optional HTTP(S) host access; resume waits for all required permissions. Remove Ads defaults off. Change checks reuse the archive’s options (legacy defaults are media on, JavaScript off, ad removal off, and crawl caps on).
 - Live-tab image currentSrc is copied into inert markup. Referenced external resources require browser permission; resource redirects omit credentials. Page crawling stays same-origin and respects robots/noarchive.
-- Limits: 40 pages, 256 distinct downloaded resources, 4 MB/resource, 12 MB embedded content/page, 96 MB/archive. Static snapshots; streaming/auth-required resources may fail. CSS and permitted font/decorative assets are retained with media disabled.
-- Viewer uses sandboxed srcdoc and data-only media CSP. Dismiss button hides header and switches grid to one row; no archive deletion.
+- Limits: 40 pages, 256 distinct downloaded resources, 4 MB/resource, 12 MB embedded content/page, 96 MB/archive. The uncapped option removes archive-wide caps for website mode while retaining per-file and per-page safeguards. Drafts publish atomically after the crawl. JavaScript capture defaults on for new saves; playback is user-initiated in an opaque sandbox (Chromium or Firefox 154+). CSS and permitted font/decorative assets are retained with media disabled.
+- Static viewer uses sandboxed srcdoc and data-only media CSP. It reconnects known Wikipedia Appearance controls. Script playback uses a separate manifest sandbox with no extension APIs. Dismiss button hides header and switches grid to one row; no archive deletion.
 - Privacy link: https://yapperyap.github.io/CacheBuddyExtension/privacy.html
 - Contact text: Email: yapperyapemail@proton.me
 
