@@ -1,0 +1,37 @@
+name: Installed extension tests
+on:
+  push:
+    branches: [main, 'cachebuddy-*-candidate']
+    paths: ['chromium/**', 'firefox/**', '*.cjs', '.github/workflows/installed-extension.yml']
+  pull_request:
+    paths: ['chromium/**', 'firefox/**', '*.cjs', '.github/workflows/installed-extension.yml']
+permissions:
+  contents: read
+jobs:
+  installed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - if: matrix.browser == 'chromium'
+        run: |
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - if: matrix.browser == 'firefox'
+        run: |
+          npm install --no-save --package-lock=false selenium-webdriver@4.41.0
+          curl --fail --location --retry 2 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' --output "$RUNNER_TEMP/firefox.tar.xz"
+          tar -xJf "$RUNNER_TEMP/firefox.tar.xz" -C "$RUNNER_TEMP"
+          echo "CACHEBUDDY_FIREFOX=$RUNNER_TEMP/firefox/firefox" >> "$GITHUB_ENV"
+      - run: node installed-browser.test.cjs "$BROWSER_VARIANT"
+        env:
+          BROWSER_VARIANT: ${{ matrix.browser }}
