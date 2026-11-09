@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="frame-src 'self'">
   <title>Offline copy · CacheBuddy</title>
   <link rel="stylesheet" href="ui.css">
   <script type="module" src="viewer.js"></script>
@@ -14,6 +15,7 @@
     <span id="label">Offline copy</span>
     <a id="original" hidden rel="noreferrer">Original address</a>
     <button id="online" hidden>Try live page</button>
+    <button id="replay" type="button" hidden title="Run compatible saved scripts in an isolated view">Run saved scripts</button>
     <button id="dismissBanner" type="button" aria-label="Dismiss cached-page banner" title="Dismiss cached-page banner">×</button>
   </header>
   <iframe id="copy" title="Saved page snapshot" sandbox="allow-same-origin allow-top-navigation-by-user-activation" referrerpolicy="no-referrer" hidden></iframe>

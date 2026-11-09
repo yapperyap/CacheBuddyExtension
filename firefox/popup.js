@@ -25,6 +25,9 @@ function renderCapture() {
   const mode = selectedMode(), archive = selectedArchive();
   const work = pending || job?.running;
   const page = pageArchive(), site = siteArchive();
+  el('captureOptions').disabled = Boolean(work);
+  el('siteLimitNote').textContent = el('uncapped').checked ?
+    'Linked public pages on this origin, with crawl caps off' : 'Up to 40 linked public pages on this origin';
   const inSite = site && Object.hasOwn(site.byURL, root);
   el('cacheState').hidden = !root;
   el('pageState').textContent = page ? 'Cached separately' : inSite ? 'Included in website cache' : 'Not cached';
@@ -48,18 +51,22 @@ function renderCapture() {
     'Crawls public HTML on this origin without signing in. Copies stay in this browser profile.';
   const relevant = job && job.mode === mode &&
     (mode === 'page' ? job.root === root : new URL(job.root).origin === origin);
-  const showMeter = Boolean(job?.running || (relevant && (archive || job.outcome === 'error')));
+  const showMeter = Boolean(pending || job?.running || (relevant && (archive || ['error', 'cancelled'].includes(job.outcome))));
   el('meter').hidden = !showMeter;
+  el('stop').hidden = !job?.running || job?.writing;
+  el('stop').disabled = job?.cancelled === true;
   if (showMeter) {
-    el('progress').max = job.total || 1;
-    el('progress').value = job.done || 0;
-    el('meterLabel').textContent = job.running ? job.phase : job.action === 'check' ? 'Check complete' : 'Capture progress';
-    el('count').textContent = job.done + ' / ' + job.total + (job.total === 1 ? ' page' : ' pages');
+    el('progress').max = job?.total || 1;
+    if (job?.running || !pending) el('progress').value = job?.done || 0;
+    else el('progress').removeAttribute('value');
+    el('meterLabel').textContent = job?.running ? job.phase : pending ? 'Starting…' : job?.phase;
+    el('meterLabel').title = el('meterLabel').textContent;
+    el('count').textContent = job ? job.done + ' / ' + job.total + (job.total === 1 ? ' page' : ' pages') : '';
   }
   if (!root) return status('Open an HTTP or HTTPS page to use CacheBuddy.');
   if (editing) return;
   if (job?.running) return status(job.mode === 'site' ? 'You can close this popup while the site is processed.' : '');
-  if (relevant && job.outcome && (archive || job.outcome === 'error')) {
+  if (relevant && job.outcome && (archive || ['error', 'cancelled'].includes(job.outcome))) {
     const skipped = [job.skipped && job.skipped + ' pages skipped', job.skippedAssets && job.skippedAssets + ' unique resources skipped', job.capped && 'site limit reached'].filter(Boolean);
     return status(job.phase + (skipped.length ? ' ' + skipped.join(' · ') + '.' : ''), job.outcome === 'error');
   }
@@ -163,6 +170,8 @@ async function start(action) {
   confirming = null;
   const saveMedia = action === 'check' ? (archive?.saveMedia ?? true) : el('saveMedia').checked;
   const removeAds = action === 'check' ? archive?.removeAds === true : el('removeAds').checked;
+  const saveScripts = action === 'check' ? archive?.saveScripts === true : el('saveScripts').checked;
+  const uncapped = mode === 'site' && (action === 'check' ? archive?.uncapped === true : el('uncapped').checked);
   const source = mode === 'site' && archive ? archive.root : root;
   pending = true;
   editing = false;
@@ -170,8 +179,8 @@ async function start(action) {
   try {
     const id = crypto.randomUUID();
     // Stage the click before the permission prompt can dismiss this popup.
-    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia, removeAds});
-    const permission = browser.permissions.request({origins: saveMedia ? ['https://*/*', 'http://*/*'] : [hostPermission(source)]});
+    const staged = send('stage', {id, mode, action, root: source, tabId: tab.id, saveMedia, removeAds, saveScripts, uncapped});
+    const permission = browser.permissions.request({origins: saveMedia || saveScripts ? ['https://*/*', 'http://*/*'] : [hostPermission(source)]});
     const [stage, grant] = await Promise.allSettled([staged, permission]);
     if (stage.status === 'rejected') throw stage.reason;
     if (!stage.value?.ok) throw new Error(stage.value?.error || 'Could not start the operation.');
@@ -222,6 +231,22 @@ el('saveMedia').addEventListener('change', () => {
   browser.storage.local.set({saveMedia: el('saveMedia').checked}).catch(error => status(error.message, true));
 });
 
+for (const key of ['saveScripts', 'uncapped']) {
+  el(key).addEventListener('change', () => {
+    browser.storage.local.set({[key]: el(key).checked}).catch(error => status(error.message, true));
+    renderCapture();
+  });
+}
+el('stop').addEventListener('click', async () => {
+  try {
+    const result = await send('cancel');
+    if (!result?.ok) throw new Error(result?.error || 'Could not stop the capture.');
+    await poll();
+  } catch (error) {
+    status(error.message, true);
+  }
+});
+
 el('save').addEventListener('click', () => start('save'));
 el('check').addEventListener('click', () => start('check'));
 el('choices').addEventListener('change', () => {
@@ -270,9 +295,11 @@ el('theme').addEventListener('change', async event => {
 try {
   document.body.style.setProperty('--popup-width', Math.round(screen.availWidth / 3) + 'px');
   el('theme').value = await applyTheme();
-  const preferences = await browser.storage.local.get(['saveMedia', 'removeAds']);
+  const preferences = await browser.storage.local.get(['saveMedia', 'removeAds', 'saveScripts', 'uncapped']);
   el('saveMedia').checked = preferences.saveMedia !== false;
   el('removeAds').checked = preferences.removeAds === true;
+  el('saveScripts').checked = preferences.saveScripts !== false;
+  el('uncapped').checked = preferences.uncapped === true;
   [tab] = await browser.tabs.query({active: true, currentWindow: true});
   const address = tab?.url || '';
   const viewer = address.startsWith(browser.runtime.getURL('viewer.html') + '?');

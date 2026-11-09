@@ -13,6 +13,8 @@
     <nav class="rail" aria-label="CacheBuddy">
       <button type="button" data-view="capture" aria-controls="capture" aria-current="page">Cache</button>
       <button type="button" data-view="archive" aria-controls="archive">Saved</button>
+      <button type="button" data-view="settings" aria-controls="settings">Settings</button>
+      <button type="button" data-view="themes" aria-controls="themes">Themes</button>
       <button type="button" data-view="about" aria-controls="about">About</button>
     </nav>
     <main class="sheet">
@@ -31,9 +33,7 @@
         <fieldset id="choices" disabled>
           <legend class="small muted">Save scope</legend>
           <label class="option"><input type="radio" name="mode" value="page" checked><span><b>This page</b><small>Snapshot of the open tab</small></span></label>
-          <label class="option"><input type="radio" name="mode" value="site"><span><b>This website</b><small>Up to 40 linked public pages on this origin</small></span></label>
-          <label class="option"><input id="saveMedia" type="checkbox" checked><span><b>Save images and other media</b><small>Include images, audio, and video from this site and external hosts (up to 4 MB per file). Requests access to all websites to save referenced media.</small></span></label>
-          <label class="option"><input id="removeAds" type="checkbox"><span><b>Remove ads</b><small>Omit recognized ad placements from the saved copy.</small></span></label>
+          <label class="option"><input type="radio" name="mode" value="site"><span><b>This website</b><small><span id="siteLimitNote">Up to 40 linked public pages on this origin</span></small></span></label>
         </fieldset>
         <p id="scopeNote" class="small muted">Copies stay in this browser profile. A page snapshot may contain personal information visible in your tab.</p>
         <div class="actions">
@@ -41,10 +41,6 @@
           <button id="check" class="quiet" hidden>Check for changes</button>
           <button id="uncache" class="quiet danger" hidden>Uncache</button>
           <button id="cancelUncache" class="quiet" hidden>Cancel</button>
-        </div>
-        <div id="meter" class="meter" hidden>
-          <label for="progress"><span id="meterLabel">Working…</span><span id="count"></span></label>
-          <progress id="progress" max="1" value="0"></progress>
         </div>
         <p id="status" class="small status" role="status" aria-live="polite"></p>
       </section>
@@ -54,12 +50,26 @@
         <label class="small muted search">Find a copy<input id="search" type="search" placeholder="Search title or address"></label>
         <ul id="list" class="archives"></ul>
       </section>
-      <section id="about" hidden>
-        <h1>About CacheBuddy</h1>
-        <p class="muted">Version 1.1.8 · Made by Yap</p>
+      <section id="settings" hidden>
+        <h1>Settings</h1>
+        <p class="muted">Choose what to include when you save or update a copy.</p>
+        <fieldset id="captureOptions" class="capture-options">
+          <legend class="small muted">Capture options</legend>
+          <label class="option"><input id="saveMedia" type="checkbox" checked><span><b>Save images and other media</b><small>Include images, audio, and video from this site and external hosts (up to 4 MB per file). Requests access to all websites to save referenced media.</small></span></label>
+          <label class="option"><input id="removeAds" type="checkbox"><span><b>Remove ads</b><small>Omit recognized ad placements from the saved copy.</small></span></label>
+          <label class="option"><input id="saveScripts" type="checkbox" checked><span><b>Save page JavaScript</b><small>Keep scripts for optional isolated playback. External scripts require access to their sites.</small></span></label>
+          <label class="option"><input id="uncapped" type="checkbox"><span><b>Disable website crawl caps</b><small>Remove page, resource-count, and total archive caps for website captures. Per-file and per-page safeguards still apply.</small></span></label>
+        </fieldset>
+      </section>
+      <section id="themes" hidden>
+        <h1>Themes</h1>
         <label class="setting"><span><b>Color theme</b><small>Applies to CacheBuddy controls</small></span>
           <select id="theme"><option value="system">System</option><option value="paper">Paper</option><option value="ink">Ink</option><option value="moss">Moss</option><option value="clay">Clay</option></select>
         </label>
+      </section>
+      <section id="about" hidden>
+        <h1>About CacheBuddy</h1>
+        <p class="muted">Version 1.1.10 · Made by Yap</p>
         <p>CacheBuddy saves only after you click Cache or Update. Revisit a saved address offline or open it from Saved.</p>
         <div class="links">
           <a href="https://yapperyap.github.io/CacheBuddyExtension/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
@@ -71,5 +81,12 @@
       </section>
     </main>
   </div>
+  <footer id="meter" class="meter" hidden>
+    <div class="meter-controls">
+      <label for="progress"><span id="meterLabel">Working…</span><span id="count"></span></label>
+      <button id="stop" type="button" hidden>Stop</button>
+    </div>
+    <progress id="progress" max="1" value="0"></progress>
+  </footer>
 </body>
 </html>

@@ -1,4 +1,4 @@
-CacheBuddy 1.1.8
+CacheBuddy 1.1.10
 Made by Yap
 
 INSTALL
@@ -37,9 +37,15 @@ public HTML fetch. Refresh the live page before checking a rendered snapshot.
 This website follows linked public HTML pages on the same origin, starting at
 the current page and origin homepage. It checks robots.txt and applicable
 noarchive directives on fetched pages, and uses no login credentials. The site
-limit is 40 pages. Captures are limited to 96 MB each.
+default limit is 40 pages and 96 MB per capture. In Settings, Disable website
+crawl caps removes those limits and the resource-count limit. Per-file and
+per-page safeguards still apply. Stop cancels a capture before it replaces
+the saved archive.
 
-The viewer displays a static snapshot. Styles, fonts, common media, and inline
+The viewer opens a static snapshot. Save page JavaScript defaults to on.
+Run saved scripts uses a separate sandbox when supported by the browser.
+Scripts that rely on live servers, cookies, or unavailable module imports may
+not work. Wikipedia Appearance controls work in the static copy. Styles, fonts, common media, and inline
 vector graphics can be preserved within browser permissions and size limits.
 Site scripts, form submissions, embedded frames, and protected resources may
 be unavailable. For private rendered pages, save only if you are
