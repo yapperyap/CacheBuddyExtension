@@ -59,8 +59,12 @@ function renderCapture() {
     el('progress').max = job?.total || 1;
     if (job?.running || !pending) el('progress').value = job?.done || 0;
     else el('progress').removeAttribute('value');
-    el('meterLabel').textContent = job?.running ? job.phase : pending ? 'Starting…' : job?.phase;
-    el('meterLabel').title = el('meterLabel').textContent;
+    const phase = job?.running ? job.phase : pending ? 'Starting…' : job?.phase;
+    const meterLabel = el('meterLabel');
+    if (meterLabel.textContent !== phase) {
+      meterLabel.textContent = phase;
+      meterLabel.title = phase;
+    }
     el('count').textContent = job ? job.done + ' / ' + job.total + (job.total === 1 ? ' page' : ' pages') : '';
   }
   if (!root) return status('Open an HTTP or HTTPS page to use CacheBuddy.');

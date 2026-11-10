@@ -8,12 +8,12 @@
 [hidden]{display:none!important}
 body{margin:0;background:var(--ground);color:var(--text)}
 /* The browser sizes the toolbar popup from this document. Avoid viewport-relative sizing here. */
-body.popup{width:clamp(448px,var(--popup-width,540px),800px);height:600px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
+body.popup{width:clamp(448px,var(--popup-width,540px),800px);height:600px;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
 .popup .frame{min-height:0;overflow:auto;overscroll-behavior:contain}
 .popup .meter{padding:8px 12px 10px;background:var(--surface);border-top:1px solid var(--rule);margin:0}
 .meter-controls{display:flex;align-items:center;gap:10px}
 .meter-controls label{flex:1;min-width:0}
-.meter-controls button{min-height:26px;padding:2px 8px;font-size:12px}
+.meter-controls button{flex:none;min-height:26px;padding:2px 8px;font-size:12px}
 .mast{min-height:48px;display:flex;align-items:center;gap:8px;padding:0 15px}
 .mast strong{font-size:16px;font-weight:600;letter-spacing:-.025em}
 .mast span{margin-left:auto;color:var(--muted);font-size:12px}
@@ -58,7 +58,7 @@ fieldset:disabled{opacity:.62}
 .quiet{border-color:transparent;color:var(--accent);padding-inline:5px}
 .meter{margin-top:12px}
 .meter label{display:flex;justify-content:space-between;gap:7px;font-size:12px;font-variant-numeric:tabular-nums}
-#meterLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#meterLabel{min-width:0;overflow-x:auto;white-space:nowrap}
 #count{white-space:nowrap;color:var(--muted)}
 progress{display:block;width:100%;height:8px;margin-top:5px;border:0;border-radius:3px;overflow:hidden;background:var(--raised);accent-color:var(--accent)}
 progress::-webkit-progress-bar{background:var(--raised)}
