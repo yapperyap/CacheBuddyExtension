@@ -50,6 +50,8 @@ async function verifyPopup(evaluate, navigate, popupURL) {
     try {
       const popup = preview.contentDocument;
       const frame = popup.querySelector('.frame');
+      const rail = popup.querySelector('.rail');
+      const sheet = popup.querySelector('.sheet');
       const meter = popup.getElementById('meter');
       const path = popup.getElementById('meterLabel');
       const stop = popup.getElementById('stop');
@@ -60,12 +62,29 @@ async function verifyPopup(evaluate, navigate, popupURL) {
       const stopBefore = stop.getBoundingClientRect().right;
       path.scrollLeft = path.scrollWidth;
       const footerBefore = meter.getBoundingClientRect().bottom;
-      frame.scrollTop = frame.scrollHeight;
+      const option = popup.querySelector('#captureOptions .option');
+      const optionTextGap = option.querySelector('small').getBoundingClientRect().top -
+        option.querySelector('b').getBoundingClientRect().bottom;
+      const actionGap = popup.getElementById('save').getBoundingClientRect().top -
+        popup.getElementById('scopeNote').getBoundingClientRect().bottom;
+      for (const pane of [rail, sheet]) {
+        const filler = popup.createElement('div');
+        filler.style.minHeight = '700px';
+        pane.append(filler);
+      }
+      rail.scrollTop = rail.scrollHeight;
+      const railScroll = rail.scrollTop;
+      const sheetBefore = sheet.scrollTop;
+      sheet.scrollTop = sheet.scrollHeight;
       return {
         width: popup.body.offsetWidth,
         height: popup.body.offsetHeight,
         panelHeight: frame.clientHeight,
         pathScrolled: path.scrollLeft > 0,
+        panesScrollSeparately: railScroll > 0 && sheetBefore === 0 && sheet.scrollTop > 0 &&
+          rail.scrollTop === railScroll && frame.scrollTop === 0,
+        optionTextGap,
+        actionGap,
         stopBefore,
         stopAfter: stop.getBoundingClientRect().right,
         footerBefore,
@@ -77,6 +96,8 @@ async function verifyPopup(evaluate, navigate, popupURL) {
   });
   assert(layout.width >= 448 && layout.height === 600 && layout.panelHeight > 0, JSON.stringify(layout));
   assert(layout.pathScrolled && layout.stopBefore > 0 && layout.stopBefore <= layout.width, JSON.stringify(layout));
+  assert(layout.panesScrollSeparately, JSON.stringify(layout));
+  assert(layout.optionTextGap >= 2 && layout.actionGap >= 12, JSON.stringify(layout));
   assert.equal(layout.stopAfter, layout.stopBefore);
   assert(Math.abs(layout.footerBefore - layout.height) < 1, JSON.stringify(layout));
   assert.equal(layout.footerAfter, layout.footerBefore);

@@ -1,5 +1,5 @@
 # CacheBuddy extension index
-Source: https://github.com/yapperyap/CacheBuddyExtension, Version 1.1.12.
+Source: https://github.com/yapperyap/CacheBuddyExtension, Version 1.1.13.
 Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/.
 
 | Feature | Source in chromium/ and firefox/ |
@@ -38,4 +38,4 @@ Snapshot control layout: retain native form control layout, safe SVG, and MathML
 
 Root-only development tests: npm ci && npm test (linkedom dev dependency for snapshot structural tests; no runtime dependency/build for extension or site). package-lock.json pins the test toolchain. Exclude node_modules and all root test files from browser ZIPs.
 
-Toolbar sizing: popup dimensions are independent of the popup viewport while the browser measures the document. The middle panel scrolls independently of the bottom progress footer. The progress path scrolls horizontally without moving Stop.
+Toolbar sizing: popup dimensions are independent of the popup viewport while the browser measures the document. The navigation rail and content panel scroll independently, above the fixed progress footer. The progress path scrolls horizontally without moving Stop.
