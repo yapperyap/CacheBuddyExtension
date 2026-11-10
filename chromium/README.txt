@@ -1,8 +1,8 @@
-CacheBuddy 1.1.12
+CacheBuddy 1.1.13
 Made by Yap
 
 INSTALL
-1. Extract CacheBuddy-chromium-1.1.12.zip to a folder you can keep.
+1. Extract CacheBuddy-chromium-1.1.13.zip to a folder you can keep.
 2. In Chrome 116 or later, open chrome://extensions and enable Developer mode.
 3. Choose Load unpacked and select the extracted folder containing manifest.json.
 4. Open CacheBuddy from Chrome's Extensions menu. Pin it if you want one-click access.

@@ -156,6 +156,7 @@ function renderList() {
 
 for (const button of document.querySelectorAll('[data-view]')) {
   button.addEventListener('click', () => {
+    if (activeView !== button.dataset.view) document.querySelector('.popup .sheet').scrollTop = 0;
     activeView = button.dataset.view;
     for (const item of document.querySelectorAll('[data-view]')) {
       const active = item === button;
