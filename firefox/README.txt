@@ -1,4 +1,4 @@
-CacheBuddy 1.1.11
+CacheBuddy 1.1.12
 Made by Yap
 
 INSTALL
@@ -16,7 +16,7 @@ Approve site access if prompted. The popup shows progress and any skipped items.
 Capture starts after approval, even if Firefox closes the popup. Reopen it to
 see progress. The Cache view shows page and website status and lets you uncache
 the selected saved copy.
-Remove ads is optional and off by default. Set a color theme in About.
+Remove ads is optional and off by default. Set a color theme in Settings.
 You can close the popup once capture starts. Use Saved to open or delete copies.
 
 To reopen a saved page offline, enter its original address. After Firefox reports
@@ -37,7 +37,7 @@ public HTML fetch. Refresh the live page before checking a rendered snapshot.
 This website follows linked public HTML pages on the same origin, starting at
 the current page and origin homepage. It checks robots.txt and applicable
 noarchive directives on fetched pages, and uses no login credentials. The site
-default limit is 40 pages and 96 MB per capture. In Settings, Disable website
+default limit is 40 pages and 96 MB per capture. In Cache, Disable website
 crawl caps removes those limits and the resource-count limit. Per-file and
 per-page safeguards still apply. Stop cancels a capture before it replaces
 the saved archive.
