@@ -7,7 +7,8 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--ground);color:var(--text)}
-body.popup{width:clamp(448px,var(--popup-width,540px),800px);height:600px;max-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
+/* The browser sizes the toolbar popup from this document. Avoid viewport-relative sizing here. */
+body.popup{width:clamp(448px,var(--popup-width,540px),800px);height:600px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
 .popup .frame{min-height:0;overflow:auto;overscroll-behavior:contain}
 .popup .meter{padding:8px 12px 10px;background:var(--surface);border-top:1px solid var(--rule);margin:0}
 .meter-controls{display:flex;align-items:center;gap:10px}
@@ -87,7 +88,6 @@ progress::-webkit-progress-value{background:var(--accent)}
 .legal{max-width:720px;margin:0 auto;padding:24px}
 .legal .sheet{padding:24px}
 .legal h2{margin:21px 0 5px}
-@media(max-width:447px){body.popup{width:100vw}.frame{grid-template-columns:minmax(0,1fr);padding-left:8px}.rail{flex-direction:row;padding:0 8px 6px;gap:12px}.sheet{padding-inline:14px}}
 
 .viewer.banner-dismissed{grid-template-rows:1fr}
 .viewer #dismissBanner{flex:none;margin-left:0;min-width:36px;min-height:36px;font-size:22px}
