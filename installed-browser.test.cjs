@@ -39,6 +39,36 @@ async function wait(operation, reason) {
 async function verifyPopup(evaluate, navigate, popupURL) {
   await navigate(popupURL);
   await wait(() => evaluate(() => Boolean(document.querySelector('#host')?.textContent !== 'Loading…')), 'Popup initialization timed out');
+  // Toolbar popups can start with a tiny viewport while the browser measures the document.
+  const layout = await evaluate(async () => {
+    const preview = document.createElement('iframe');
+    preview.style.cssText = 'position:absolute;width:32px;height:32px;visibility:hidden';
+    const loaded = new Promise(resolve => preview.addEventListener('load', resolve, {once: true}));
+    preview.src = location.href;
+    document.body.append(preview);
+    await loaded;
+    try {
+      const popup = preview.contentDocument;
+      const frame = popup.querySelector('.frame');
+      const meter = popup.getElementById('meter');
+      meter.hidden = false;
+      popup.querySelector('[data-view=settings]').click();
+      const footerBefore = meter.getBoundingClientRect().bottom;
+      frame.scrollTop = frame.scrollHeight;
+      return {
+        width: popup.body.offsetWidth,
+        height: popup.body.offsetHeight,
+        panelHeight: frame.clientHeight,
+        footerBefore,
+        footerAfter: meter.getBoundingClientRect().bottom
+      };
+    } finally {
+      preview.remove();
+    }
+  });
+  assert(layout.width >= 448 && layout.height === 600 && layout.panelHeight > 0, JSON.stringify(layout));
+  assert.equal(layout.footerBefore, layout.height);
+  assert.equal(layout.footerAfter, layout.footerBefore);
   const controls = await evaluate(() => {
     document.querySelector('[data-view=settings]').click();
     const options = [...document.querySelectorAll('#captureOptions input')].map(e => e.id);

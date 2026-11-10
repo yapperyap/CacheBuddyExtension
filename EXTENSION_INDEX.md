@@ -1,5 +1,5 @@
 # CacheBuddy extension index
-Source: https://github.com/yapperyap/CacheBuddyExtension, Version 1.1.10 candidate.
+Source: https://github.com/yapperyap/CacheBuddyExtension, Version 1.1.11.
 Website index: WEBSITE_INDEX.md. Keep both indexes out of browser ZIPs and docs/.
 
 | Feature | Source in chromium/ and firefox/ |
@@ -37,3 +37,5 @@ Snapshot order: img resources reserve budget before CSS decorations; inline SVG 
 Snapshot control layout: retain native form control layout, safe SVG, and MathML. Clear sensitive input values, strip event handlers, and prevent form submission. Worker syncs checked and selected states into the inert clone. CSS URL parser handles escaped strings; inline SVG accepts ;utf8 as well as charset/base64 forms. Raw Wikipedia CSS regression is distinct from CSSOM-normalized replay.
 
 Root-only development tests: npm ci && npm test (linkedom dev dependency for snapshot structural tests; no runtime dependency/build for extension or site). package-lock.json pins the test toolchain. Exclude node_modules and all root test files from browser ZIPs.
+
+Toolbar sizing: popup dimensions are independent of the popup viewport while the browser measures the document. The middle panel scrolls independently of the bottom progress footer.
