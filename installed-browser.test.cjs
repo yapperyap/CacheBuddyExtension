@@ -51,14 +51,23 @@ async function verifyPopup(evaluate, navigate, popupURL) {
       const popup = preview.contentDocument;
       const frame = popup.querySelector('.frame');
       const meter = popup.getElementById('meter');
+      const path = popup.getElementById('meterLabel');
+      const stop = popup.getElementById('stop');
       meter.hidden = false;
-      popup.querySelector('[data-view=settings]').click();
+      stop.hidden = false;
+      path.textContent = 'Saving /' + 'long-path-segment/'.repeat(100) + 'index.html';
+      popup.getElementById('count').textContent = '19 / 40 pages';
+      const stopBefore = stop.getBoundingClientRect().right;
+      path.scrollLeft = path.scrollWidth;
       const footerBefore = meter.getBoundingClientRect().bottom;
       frame.scrollTop = frame.scrollHeight;
       return {
         width: popup.body.offsetWidth,
         height: popup.body.offsetHeight,
         panelHeight: frame.clientHeight,
+        pathScrolled: path.scrollLeft > 0,
+        stopBefore,
+        stopAfter: stop.getBoundingClientRect().right,
         footerBefore,
         footerAfter: meter.getBoundingClientRect().bottom
       };
@@ -67,20 +76,26 @@ async function verifyPopup(evaluate, navigate, popupURL) {
     }
   });
   assert(layout.width >= 448 && layout.height === 600 && layout.panelHeight > 0, JSON.stringify(layout));
+  assert(layout.pathScrolled && layout.stopBefore > 0 && layout.stopBefore <= layout.width, JSON.stringify(layout));
+  assert.equal(layout.stopAfter, layout.stopBefore);
   assert(Math.abs(layout.footerBefore - layout.height) < 1, JSON.stringify(layout));
   assert.equal(layout.footerAfter, layout.footerBefore);
   const controls = await evaluate(() => {
-    document.querySelector('[data-view=settings]').click();
-    const options = [...document.querySelectorAll('#captureOptions input')].map(e => e.id);
+    const captureOptions = document.getElementById('captureOptions');
+    const options = [...captureOptions.querySelectorAll('input')].map(e => e.id);
+    const optionsAboveNote = captureOptions.parentElement.id === 'capture' &&
+      captureOptions.nextElementSibling.id === 'scopeNote';
     document.getElementById('uncapped').click();
-    document.querySelector('[data-view=themes]').click();
+    document.querySelector('[data-view=settings]').click();
     const theme = document.querySelector('#theme');
     theme.value = 'ink';
     theme.dispatchEvent(new Event('change'));
-    return {options, nav: [...document.querySelectorAll('[data-view]')].map(b => b.dataset.view), visible: !document.getElementById('themes').hidden};
+    const settings = document.getElementById('settings');
+    return {options, optionsAboveNote, nav: [...document.querySelectorAll('[data-view]')].map(b => b.dataset.view), visible: settings.contains(theme) && !settings.hidden};
   });
   assert.deepEqual(controls.options, ['saveMedia', 'removeAds', 'saveScripts', 'uncapped']);
-  assert.deepEqual(controls.nav, ['capture', 'archive', 'settings', 'themes', 'about']);
+  assert(controls.optionsAboveNote);
+  assert.deepEqual(controls.nav, ['capture', 'archive', 'settings', 'about']);
   assert(controls.visible);
   await wait(() => evaluate(async () => {
     const {theme, uncapped} = await (globalThis.browser ?? chrome).storage.local.get(['theme', 'uncapped']);
