@@ -1,4 +1,4 @@
-CacheBuddy 1.1.10
+CacheBuddy 1.1.11
 Made by Yap
 
 INSTALL
