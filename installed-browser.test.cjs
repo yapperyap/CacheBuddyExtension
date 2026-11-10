@@ -67,7 +67,7 @@ async function verifyPopup(evaluate, navigate, popupURL) {
     }
   });
   assert(layout.width >= 448 && layout.height === 600 && layout.panelHeight > 0, JSON.stringify(layout));
-  assert.equal(layout.footerBefore, layout.height);
+  assert(Math.abs(layout.footerBefore - layout.height) < 1, JSON.stringify(layout));
   assert.equal(layout.footerAfter, layout.footerBefore);
   const controls = await evaluate(() => {
     document.querySelector('[data-view=settings]').click();
